@@ -45,6 +45,10 @@ class DeezerAPIService:
         albums = [AlbumResponse(**album) for album in albums_data]
         return albums
 
+    async def get_album_info(self, album_id: str) -> AlbumResponse:
+        data = await self._request(f"album/{album_id}")
+        return AlbumResponse(**data)
+
     async def get_album_tracks(self, album_id: str) -> AlbumTracksResponse:
         data = await self._request(f"album/{album_id}/tracks")
         return AlbumTracksResponse(**data)

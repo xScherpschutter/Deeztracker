@@ -5,7 +5,7 @@ from pydantic import BaseModel, HttpUrl
 class Artist(BaseModel):
     id: int
     name: str
-    link: str
+    link: Optional[str] = None
     picture: Optional[str]
     picture_small: Optional[str]
     picture_medium: Optional[str]
@@ -36,7 +36,7 @@ class Album(BaseModel):
 class ArtistMini(BaseModel):
     id: int
     name: str
-    link: Optional[HttpUrl]
+    link: Optional[HttpUrl] = None
 
 class AlbumResponse(BaseModel):
     id: int

@@ -1,7 +1,7 @@
 from .album import AlbumSearchResponse, AlbumResponse, AlbumTracksResponse
 from .artist import ArtistSearchResponse, Artist
 from .playlist import PlaylistSearchResponse
-from .track import TrackSearchResponse
+from .track import TrackSearchResponse, Track
 
 __all__ = [
     "TrackSearchResponse",
@@ -9,6 +9,7 @@ __all__ = [
     "ArtistSearchResponse",
     "PlaylistSearchResponse",
     "Artist",
+    "Track",
     "AlbumResponse",
     "AlbumTracksResponse"
 ]

@@ -1,4 +1,6 @@
+import asyncio
 from deezspot import DeeLogin
+from pydantic import HttpUrl
 
 class DeezloaderService:
     VALID_QUALITY_DOWNLOAD = ["FLAC", "MP3_320", "MP3_128"]
@@ -11,38 +13,48 @@ class DeezloaderService:
         self.recursive_quality = recursive_quality
         self.convert_to = convert_to if convert_to in self.VALID_CONVERT_TO else self.VALID_CONVERT_TO[0]
         
-    def download_track(self, track_url: str) -> None:
+    async def download_track(self, track_url: str | HttpUrl) -> None:
+        """Descarga una pista de forma asíncrona, ejecutando la llamada síncrona en un hilo."""
         try:
-            self.deez.download_trackdee(
-                link_track=track_url,
+            await asyncio.to_thread(
+                self.deez.download_trackdee,
+                link_track=str(track_url),
                 output_dir=self.output_dir,
                 quality_download=self.quality_download,
                 convert_to=self.convert_to,
                 recursive_quality=self.recursive_quality
             )
+            print(f"Descarga de pista completada: {track_url}")
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"Ocurrió un error en la descarga de la pista: {e}")
     
-    def download_album(self, album_url: str) -> None:
+    async def download_album(self, album_url: str | HttpUrl) -> None:
+        """Descarga un álbum de forma asíncrona, ejecutando la llamada síncrona en un hilo."""
         try:
-            self.deez.download_albumdee(
-                link_album=album_url,
+            await asyncio.to_thread(
+                self.deez.download_albumdee,
+                link_album=str(album_url),
+                output_dir=self.output_dir,
+                quality_download=self.quality_download,
+                convert_to=self.convert_to,
+                recursive_quality=self.recursive_quality,
+                make_zip=False
+            )
+            print(f"Descarga de álbum completada: {album_url}")
+        except Exception as e:
+            print(f"Ocurrió un error en la descarga del álbum: {e}")
+    
+    async def download_playlist(self, playlist_url: str | HttpUrl) -> None:
+        """Descarga una playlist de forma asíncrona, ejecutando la llamada síncrona en un hilo."""
+        try:
+            await asyncio.to_thread(
+                self.deez.download_playlistdee,
+                link_playlist=str(playlist_url),
                 output_dir=self.output_dir,
                 quality_download=self.quality_download,
                 convert_to=self.convert_to,
                 recursive_quality=self.recursive_quality,
             )
+            print(f"Descarga de playlist completada: {playlist_url}")
         except Exception as e:
-            print(f"An error occurred: {e}")
-    
-    def download_playlist(self, playlist_url: str) -> None:
-        try:
-            self.deez.download_playlistdee(
-                link_playlist=playlist_url,
-                output_dir=self.output_dir,
-                quality_download=self.quality_download,
-                convert_to=self.convert_to,
-                recursive_quality=self.recursive_quality,
-            )
-        except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"Ocurrió un error en la descarga de la playlist: {e}")

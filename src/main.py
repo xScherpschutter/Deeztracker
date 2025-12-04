@@ -1,13 +1,5 @@
-from features.api.service import DeezerAPIService
-from pprint import pprint
-
-async def main(q: str):
-    deezer_api = DeezerAPIService()
-    result = await deezer_api.get_artist_albums(q)
-    pprint(result)
+import flet as ft
+from ui.app import main as ui_main
 
 if __name__ == "__main__":
-    query = input("Nombre: ")
-    import asyncio
-    asyncio.run(main(query))
-   
+    ft.app(target=ui_main)
