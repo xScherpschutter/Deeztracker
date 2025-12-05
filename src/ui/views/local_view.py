@@ -2,13 +2,17 @@ import flet as ft
 from ui import theme
 import os
 import sys
-import base64
+import hashlib
+import tempfile
 import mutagen
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB
-from mutagen.flac import FLAC, Picture
-from ui.components import list_items
+from mutagen.id3 import ID3, APIC
+from mutagen.flac import FLAC
 from features.downloader.utils import get_os_name, get_music_folder, get_deeztracker_music_folder
+
+# Cover cache directory
+COVER_CACHE_DIR = os.path.join(tempfile.gettempdir(), "deeztracker_covers")
+os.makedirs(COVER_CACHE_DIR, exist_ok=True)
 
 def get_music_directories():
     """Get OS-specific music directories to scan."""
@@ -88,7 +92,39 @@ class LocalView(ft.View):
     def did_mount(self):
         self.page.run_task(self.load_local_music)
 
+    def _scan_directories_sync(self, scan_dirs):
+        """Synchronous file scanning - runs in a separate thread."""
+        music_files = []
+        
+        for directory in scan_dirs:
+            try:
+                for root, dirs, files in os.walk(directory):
+                    for file in files:
+                        if file.lower().endswith(('.mp3', '.flac', '.wav', '.m4a', '.ogg', '.wma')):
+                            full_path = os.path.join(root, file)
+                            try:
+                                metadata = self.get_metadata(full_path)
+                                music_files.append(metadata)
+                            except Exception as e:
+                                print(f"Error reading file {full_path}: {e}")
+                                # Add basic metadata without cover
+                                music_files.append({
+                                    "path": full_path,
+                                    "title": os.path.splitext(os.path.basename(full_path))[0],
+                                    "artist": "Desconocido",
+                                    "album": "Desconocido",
+                                    "cover": ""
+                                })
+            except PermissionError:
+                print(f"Sin permisos para acceder a: {directory}")
+            except Exception as e:
+                print(f"Error escaneando {directory}: {e}")
+        
+        return music_files
+
     async def load_local_music(self):
+        import asyncio
+        
         self.tracks_column.controls.clear()
         self.tracks_column.controls.append(
             ft.Row([
@@ -103,29 +139,12 @@ class LocalView(ft.View):
         self.scan_info.value = f"Escaneando {len(scan_dirs)} directorios..."
         self.update()
         
-        self.music_files = []
-        scanned_count = 0
-        
-        for directory in scan_dirs:
-            try:
-                for root, dirs, files in os.walk(directory):
-                    for file in files:
-                        if file.lower().endswith(('.mp3', '.flac', '.wav', '.m4a', '.ogg', '.wma')):
-                            full_path = os.path.join(root, file)
-                            metadata = self.get_metadata(full_path)
-                            self.music_files.append(metadata)
-                            scanned_count += 1
-                            
-                            # Update progress every 50 files
-                            if scanned_count % 50 == 0:
-                                self.scan_info.value = f"Encontrados: {scanned_count} archivos..."
-                                self.update()
-            except PermissionError:
-                print(f"Sin permisos para acceder a: {directory}")
-                continue
-            except Exception as e:
-                print(f"Error escaneando {directory}: {e}")
-                continue
+        # Run blocking file scan in a separate thread
+        try:
+            self.music_files = await asyncio.to_thread(self._scan_directories_sync, scan_dirs)
+        except Exception as e:
+            print(f"Error in file scanning: {e}")
+            self.music_files = []
         
         self.scan_info.value = f"Total: {len(self.music_files)} archivos encontrados"
         self.filtered_files = self.music_files
@@ -156,10 +175,11 @@ class LocalView(ft.View):
             )
         else:
             for track in self.filtered_files:
-                # Determine leading control (Image or Icon)
-                if track["cover"].startswith("data:image"):
+                # Use cover image if available, otherwise icon placeholder
+                cover = track.get("cover", "")
+                if cover and os.path.exists(cover):
                     leading_control = ft.Image(
-                        src=track["cover"],
+                        src=cover,
                         width=50,
                         height=50,
                         fit=ft.ImageFit.COVER,
@@ -187,6 +207,7 @@ class LocalView(ft.View):
         self.update()
 
     def get_metadata(self, file_path):
+        """Extract metadata and cover art from audio file. Cover is cached to temp file."""
         title = os.path.splitext(os.path.basename(file_path))[0]
         artist = "Desconocido"
         album = "Desconocido"
@@ -213,21 +234,8 @@ class LocalView(ft.View):
                 elif 'album' in audio:
                     album = str(audio['album'][0])
                 
-                # Cover Art
-                # MP3 (ID3)
-                if isinstance(audio, MP3) or isinstance(audio, ID3):
-                    for tag in audio.tags.values():
-                        if isinstance(tag, APIC):
-                            cover_data = tag.data
-                            base64_img = base64.b64encode(cover_data).decode('utf-8')
-                            cover = f"data:image/jpeg;base64,{base64_img}"
-                            break
-                # FLAC
-                elif isinstance(audio, FLAC):
-                    if audio.pictures:
-                        cover_data = audio.pictures[0].data
-                        base64_img = base64.b64encode(cover_data).decode('utf-8')
-                        cover = f"data:image/jpeg;base64,{base64_img}"
+                # Cover Art - save to cache file
+                cover = self._extract_cover(audio, file_path)
 
         except Exception as e:
             print(f"Error extracting metadata for {file_path}: {e}")
@@ -239,6 +247,41 @@ class LocalView(ft.View):
             "album": album,
             "cover": cover
         }
+
+    def _extract_cover(self, audio, file_path):
+        """Extract cover art and save to cache file. Returns file path or empty string."""
+        # Generate unique filename from file path hash
+        path_hash = hashlib.md5(file_path.encode()).hexdigest()[:16]
+        cover_path = os.path.join(COVER_CACHE_DIR, f"{path_hash}.jpg")
+        
+        # Check if already cached
+        if os.path.exists(cover_path):
+            return cover_path
+        
+        cover_data = None
+        
+        try:
+            # MP3 (ID3)
+            if isinstance(audio, MP3) and audio.tags:
+                for tag in audio.tags.values():
+                    if isinstance(tag, APIC):
+                        cover_data = tag.data
+                        break
+            # FLAC
+            elif isinstance(audio, FLAC):
+                if audio.pictures:
+                    cover_data = audio.pictures[0].data
+            
+            # Save to file if cover found
+            if cover_data:
+                with open(cover_path, 'wb') as f:
+                    f.write(cover_data)
+                return cover_path
+                
+        except Exception as e:
+            print(f"Error extracting cover for {file_path}: {e}")
+        
+        return ""
 
     def play_track(self, track):
         self.player_manager.play_track(track, self.filtered_files)
