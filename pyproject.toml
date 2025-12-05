@@ -8,11 +8,11 @@ dependencies = [
     "deezspot-spotizerr<=3.1.5",
     "pycryptodome<=3.23.0",
     "flet[all]>=0.28.3",
-    "pygame<=2.5.2",
     "flet-cli>=0.28.3",
     "flet-permission-handler>=0.1.0",
     "httpx>=0.28.1",
     "mutagen>=1.47.0",
+    "flet-audio>=0.1.0",
 ]
 
 [tool.flet]
