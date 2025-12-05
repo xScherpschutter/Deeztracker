@@ -31,7 +31,7 @@ class Track(BaseModel):
     readable: bool
     title: str
     title_short: str
-    title_version: str
+    title_version: Optional[str] = None
     link: HttpUrl
     duration: int
     rank: int

@@ -27,7 +27,7 @@ class Playlist(BaseModel):
     checksum: str
     tracklist: str
     type: str
-    user: PlaylistUser
+    user: Optional[PlaylistUser] = None
 
 class PlaylistSearchResponse(BaseModel):
     data: List[Playlist]

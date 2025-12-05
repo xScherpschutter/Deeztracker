@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 
 
 class Artist(BaseModel):
@@ -53,6 +53,21 @@ class AlbumResponse(BaseModel):
     tracklist: Optional[HttpUrl] = None
     type: Optional[str] = None
 
+    @field_validator(
+        "cover", 
+        "cover_small", 
+        "cover_medium", 
+        "cover_big", 
+        "cover_xl", 
+        "tracklist", 
+        mode="before"
+    )
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v == "":
+            return None
+        return v
+
 class AlbumSearchResponse(BaseModel):
     data: List[Album]
     next: Optional[str] = None
@@ -69,7 +84,7 @@ class Track(BaseModel):
     readable: bool
     title: str
     title_short: str
-    title_version: Optional[str] = ''
+    title_version: Optional[str] = None
     link: Optional[HttpUrl] = None
     duration: int
     rank: int
@@ -83,6 +98,13 @@ class Track(BaseModel):
     isrc: Optional[str] = None
     type: Optional[str] = None
     artist: ArtistMiniAlbum
+
+    @field_validator("preview", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v == "":
+            return None
+        return v
 
 class AlbumTracksResponse(BaseModel):
     data: List[Track]

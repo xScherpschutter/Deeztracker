@@ -3,7 +3,7 @@ from features.api.service import DeezerAPIService
 from features.downloader.service import DeezloaderService
 
 # Importar vistas
-from ui.views import login_view, search_view, artist_view, album_view
+from ui.views import login_view, search_view, artist_view, album_view, playlist_view
 from ui.components import appbar # Importar appbar
 from ui import theme
 
@@ -73,8 +73,12 @@ async def main(page: ft.Page):
                 view = album_view.AlbumView(APP_STATE, album_id)
                 view.appbar = appbar.CustomAppBar(title="Álbum", page=page)
                 page.views.append(view)
-
-
+            
+            elif page.route.startswith("/playlist"):
+                playlist_id = page.route.split("/")[-1]
+                view = playlist_view.PlaylistView(APP_STATE, playlist_id)
+                view.appbar = appbar.CustomAppBar(title="Playlist", page=page)
+                page.views.append(view)
 
             # Añadir una ruta de fallback o una página 404
             else:
