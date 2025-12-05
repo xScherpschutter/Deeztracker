@@ -3,9 +3,10 @@ from features.api.service import DeezerAPIService
 from features.downloader.service import DeezloaderService
 
 # Importar vistas
-from ui.views import login_view, search_view, artist_view, album_view, playlist_view
+from ui.views import login_view, search_view, artist_view, album_view, playlist_view, settings_view, local_view
 from ui.components import appbar # Importar appbar
 from ui import theme
+from flet_permission_handler import PermissionHandler
 
 # Un diccionario simple para mantener el estado de la aplicación
 APP_STATE = {
@@ -13,6 +14,7 @@ APP_STATE = {
     "api": None,
     "downloader": None,
     "audio_player": None,
+    "permission_handler": None,
 }
 
 async def main(page: ft.Page):
@@ -27,6 +29,10 @@ async def main(page: ft.Page):
     # Reproductor de audio global (deshabilitado temporalmente para depuración)
     # APP_STATE["audio_player"] = ft.Audio(autoplay=False)
     # page.overlay.append(APP_STATE["audio_player"])
+
+    permission_handler = PermissionHandler()
+    page.overlay.append(permission_handler)
+    APP_STATE["permission_handler"] = permission_handler
 
     # Intentar cargar ARL de client_storage
     arl_token = await page.client_storage.get_async("arl_token")
@@ -78,6 +84,16 @@ async def main(page: ft.Page):
                 playlist_id = page.route.split("/")[-1]
                 view = playlist_view.PlaylistView(APP_STATE, playlist_id)
                 view.appbar = appbar.CustomAppBar(title="Playlist", page=page)
+                page.views.append(view)
+
+            elif page.route == "/settings":
+                view = settings_view.SettingsView(APP_STATE)
+                view.appbar = appbar.CustomAppBar(title="Configuración", page=page)
+                page.views.append(view)
+
+            elif page.route == "/local":
+                view = local_view.LocalView(APP_STATE)
+                view.appbar = appbar.CustomAppBar(title="Música Local", page=page)
                 page.views.append(view)
 
             # Añadir una ruta de fallback o una página 404

@@ -97,7 +97,6 @@ class ArtistView(ft.View):
                         list_items.TrackListItem(
                             page=self.page,
                             track_data=track_obj_for_list(track),
-                            on_play=self.play_preview,
                             on_download=self.download_track
                         )
                     )
@@ -113,23 +112,16 @@ class ArtistView(ft.View):
         
         self.update()
 
-    async def play_preview(self, preview_url: str):
-        # Deshabilitado temporalmente
-        pass
-        # if not preview_url:
-        #     await self.page.show_snack_bar_async(ft.SnackBar(content=ft.Text("Esta canción no tiene preview."), bgcolor=theme.ERROR_COLOR))
-        #     return
-        # audio_player = self.app_state["audio_player"]
-        # audio_player.src = preview_url
-        # audio_player.play()
-        # await self.page.show_snack_bar_async(ft.SnackBar(content=ft.Text("Reproduciendo preview..."), bgcolor=theme.CONTENT_BG))
+
 
     async def download_track(self, page: ft.Page, track_data):
         downloader = self.app_state["downloader"]
         self.snackbar.content = ft.Text(f"Iniciando descarga de '{track_data.title_short}'...")
         page.open(self.snackbar)
         try:
-            await downloader.download_track(track_data.link)
+            download_format = await page.client_storage.get_async("download_format")
+            download_quality = await page.client_storage.get_async("download_quality")
+            await downloader.download_track(track_data.link, convert_to=download_format, quality_download=download_quality)
             self.snackbar.content = ft.Text(f"'{track_data.title_short}' descargado con éxito!")
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)

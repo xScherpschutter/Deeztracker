@@ -95,7 +95,6 @@ class AlbumView(ft.View):
                         list_items.TrackListItem(
                             page=self.page,
                             track_data=track,
-                            on_play=self.play_preview,
                             on_download=self.download_track
                         )
                     )
@@ -108,9 +107,7 @@ class AlbumView(ft.View):
         
         self.update()
 
-    async def play_preview(self, preview_url: str):
-        # Deshabilitado temporalmente
-        pass
+
 
     async def _download_album_full(self, e):
         downloader = self.app_state["downloader"]
@@ -120,7 +117,8 @@ class AlbumView(ft.View):
         self.page.open(self.snackbar)
         try:
             album_url = f"https://www.deezer.com/album/{self.album_data.id}"
-            await downloader.download_album(album_url)
+            download_format = await self.page.client_storage.get_async("download_format")
+            await downloader.download_album(album_url, convert_to=download_format)
             self.snackbar.content = ft.Text(f"Álbum '{album_title}' descargado con éxito!")
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             self.page.open(self.snackbar)
@@ -137,7 +135,10 @@ class AlbumView(ft.View):
         self.snackbar.content = ft.Text(f"Iniciando descarga de '{item_title}'...")
         page.open(self.snackbar)
         try:
-            await downloader.download_track(data.link)
+            download_format = await page.client_storage.get_async("download_format")
+            download_quality = await page.client_storage.get_async("download_quality")
+            print(download_quality)
+            await downloader.download_track(data.link, quality_download=download_quality, convert_to=download_format)
             self.snackbar.content = ft.Text(f"'{item_title}' descargado con éxito!")
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)

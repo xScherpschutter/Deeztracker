@@ -92,7 +92,6 @@ class PlaylistView(ft.View):
                         list_items.TrackListItem(
                             page=self.page,
                             track_data=track,
-                            on_play=self.play_preview,
                             on_download=self.download_track
                         )
                     )
@@ -105,8 +104,8 @@ class PlaylistView(ft.View):
         
         self.update()
 
-    async def play_preview(self, preview_url: str):
-        pass
+
+
 
     async def _download_playlist_full(self, e):
         downloader = self.app_state["downloader"]
@@ -115,7 +114,8 @@ class PlaylistView(ft.View):
         self.snackbar.content = ft.Text(f"Iniciando descarga de playlist '{playlist_title}'...")
         self.page.open(self.snackbar)
         try:
-            await downloader.download_playlist(self.playlist_data.link)
+            download_format = await self.page.client_storage.get_async("download_format")
+            await downloader.download_playlist(self.playlist_data.link, convert_to=download_format)
             self.snackbar.content = ft.Text(f"Playlist '{playlist_title}' descargada con éxito!")
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             self.page.open(self.snackbar)
@@ -132,7 +132,9 @@ class PlaylistView(ft.View):
         self.snackbar.content = ft.Text(f"Iniciando descarga de '{item_title}'...")
         page.open(self.snackbar)
         try:
-            await downloader.download_track(data.link)
+            download_format = await page.client_storage.get_async("download_format")
+            download_quality = await page.client_storage.get_async("download_quality")
+            await downloader.download_track(data.link, convert_to=download_format, quality_download=download_quality)
             self.snackbar.content = ft.Text(f"'{item_title}' descargado con éxito!")
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)

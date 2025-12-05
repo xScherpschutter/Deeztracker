@@ -59,7 +59,7 @@ def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None)
         data=item_data # Guardar el objeto completo para referencia si es necesario
     )
 
-def TrackListItem(page: ft.Page, track_data, on_play, on_download):
+def TrackListItem(page: ft.Page, track_data, on_download):
     """
     Componente para una canción en una lista (álbum, playlist, etc.).
     Al hacer clic, se descarga la canción.

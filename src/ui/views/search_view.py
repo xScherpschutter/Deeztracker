@@ -76,10 +76,12 @@ class SearchView(ft.View):
     async def download_track(self, page: ft.Page, track_data):
         downloader = self.app_state["downloader"]
         self.snackbar.content = ft.Text(f"Iniciando descarga de '{track_data.title}'...")
-        page.open(ft.SnackBar(ft.Text(f"Iniciando descarga de '{track_data.title}'...")))
+        page.open(ft.SnackBar(ft.Text(f"Iniciando descarga de '{track_data.title}'...")))   
 
         try:
-            await downloader.download_track(track_data.link)
+            download_format = await page.client_storage.get_async("download_format")
+            download_quality = await page.client_storage.get_async("download_quality")
+            await downloader.download_track(track_data.link, convert_to=download_format, quality_download=download_quality)
             self.snackbar.content = ft.Text(f"'{track_data.title}' descargado con éxito!")
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)
