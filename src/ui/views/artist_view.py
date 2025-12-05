@@ -22,7 +22,7 @@ class ArtistView(ft.View):
         self.fan_count = ft.Text("", color=theme.SECONDARY_TEXT)
         
         self.albums_row = ft.Row(scroll=ft.ScrollMode.ADAPTIVE, spacing=15)
-        self.top_tracks_list = ft.ListView(spacing=5, expand=True)
+        self.top_tracks_list = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
         
         self.progress_ring = ft.ProgressRing()
         self.content_column = ft.Column(

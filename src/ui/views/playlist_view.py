@@ -20,7 +20,7 @@ class PlaylistView(ft.View):
             width=200, height=200, fit=ft.ImageFit.COVER, border_radius=ft.border_radius.all(10)
         )
         
-        self.tracks_column = ft.ListView(spacing=5, expand=True)
+        self.tracks_column = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
 
         self.content_column = ft.Column(
             [
