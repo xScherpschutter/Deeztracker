@@ -77,6 +77,25 @@ class SettingsView(ft.View):
         print(f"Formato de descarga guardado: {self.format_mapper.get(music_format, 'FLAC')}")
 
     async def logout(self, e):
+        # Stop player and clear playlist
+        if "player_manager" in self.app_state and self.app_state["player_manager"]:
+            player_manager = self.app_state["player_manager"]
+            player_manager._stop_position_updates()
+            if player_manager.playback.active:
+                player_manager.playback.stop()
+            player_manager.is_playing = False
+            player_manager.playlist = []
+            player_manager.current_index = -1
+        
+        # Hide mini player
+        from ui.components.mini_player import MiniPlayer
+        for control in self.page.overlay:
+            if isinstance(control, MiniPlayer):
+                control.visible = False
+                control.update()
+                break
+        
+        # Clear session data
         await self.page.client_storage.remove_async("arl_token")
         self.app_state["arl"] = None
         self.app_state["api"] = None
