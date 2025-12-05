@@ -1,18 +1,15 @@
 [project]
-name = "deeztracker"
+name = "Deeztracker"
 version = "0.1.0"
 description = "Deeztracker app"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "deezspot-spotizerr<=3.1.5",
-    "pycryptodome<=3.23.0",
-    "flet[all]>=0.28.3",
-    "flet-cli>=0.28.3",
-    "flet-permission-handler>=0.1.0",
-    "httpx>=0.28.1",
-    "mutagen>=1.47.0",
-    "flet-audio>=0.1.0",
+    "deezspot-spotizerr",
+    "flet",
+    "httpx",
+    "mutagen",
+    "just-playback",
 ]
 
 [tool.flet]
@@ -26,8 +23,4 @@ copyright = "Copyright (c) 2025"
 [tool.flet.android]
 secure = true
 orientation = "portrait"
-bundle_id = "com.crearcos"
-
-[tool.flet.flutter.pubspec.dependency_overrides]
-media_kit_video = "1.2.5"
-flet_video = "0.25.2"
+bundle_id = "com.deeztracker"

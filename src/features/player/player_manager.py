@@ -1,9 +1,8 @@
 import flet as ft
-import flet_audio as fta
-import os
-import shutil
-import time
+from just_playback import Playback
 import random
+import threading
+import time
 
 class PlayerManager:
     def __init__(self, page: ft.Page):
@@ -12,24 +11,23 @@ class PlayerManager:
         self.current_index = -1
         self.is_playing = False
         self.is_shuffle = False
-        self.is_repeat = False  # False, 'all', 'one'
+        self.is_repeat = False
         
-        # Current active audio control
-        self.audio = None
+        # just_playback instance
+        self.playback = Playback()
         
         # State for UI
-        self.duration = 0
-        self.position = 0
+        self.duration = 0  # in milliseconds
+        self.position = 0  # in milliseconds
         
         # Listeners
         self.track_change_listeners = []
         self.position_change_listeners = []
         self.state_change_listeners = []
         
-        # Temp directory for playing files
-        self.temp_audio_dir = "temp_audio"
-        if not os.path.exists(self.temp_audio_dir):
-            os.makedirs(self.temp_audio_dir)
+        # Position update thread
+        self._position_thread = None
+        self._stop_position_thread = False
 
     def subscribe(self, on_track_change=None, on_state_change=None, on_position_change=None):
         if on_track_change:
@@ -67,47 +65,22 @@ class PlayerManager:
         print(f"PlayerManager: Preparing to play {track['path']}")
 
         try:
-            # 1. Clean up previous audio control
-            if self.audio:
-                try:
-                    self.audio.pause()
-                    if self.audio in self.page.overlay:
-                        self.page.overlay.remove(self.audio)
-                    # self.page.update() # Update later to avoid flicker
-                except Exception as e:
-                    print(f"PlayerManager: Error cleaning up old audio: {e}")
+            # Stop any current playback
+            self._stop_position_updates()
+            if self.playback.active:
+                self.playback.stop()
 
-            # 2. Prepare temp file
-            # We copy the file to a temp folder to ensure Flet can access it 
-            # and to avoid any file locking or path issues.
-            file_ext = os.path.splitext(track['path'])[1]
-            # Use timestamp to ensure unique filename and avoid caching
-            temp_filename = f"track_{int(time.time())}_{random.randint(1000, 9999)}{file_ext}"
-            temp_path = os.path.join(self.temp_audio_dir, temp_filename)
-            abs_temp_path = os.path.abspath(temp_path)
+            # Load and play the new track
+            self.playback.load_file(track['path'])
+            self.duration = int(self.playback.duration * 1000)  # Convert to ms
+            print(f"PlayerManager: Loaded track, duration: {self.duration}ms")
             
-            shutil.copy(track['path'], abs_temp_path)
-            print(f"PlayerManager: Copied file to {abs_temp_path}")
-
-            # 3. Create NEW Audio control
-            self.audio = fta.Audio(
-                src=abs_temp_path,
-                autoplay=True,
-                volume=1.0,
-                balance=0,
-                on_loaded=self._on_loaded,
-                on_duration_changed=self._on_duration_changed,
-                on_position_changed=self._on_position_changed,
-                on_state_changed=self._on_state_changed,
-                on_seek_complete=self._on_seek_complete,
-            )
-
-            # 4. Add to overlay and update
-            self.page.overlay.append(self.audio)
-            self.page.update()
-            
-            # Optimistically set playing state
+            self.playback.play()
             self.is_playing = True
+            
+            # Start position update thread
+            self._start_position_updates()
+            
             self._notify_state_change()
             
             # Notify track change
@@ -122,15 +95,100 @@ class PlayerManager:
             self.is_playing = False
             self._notify_state_change()
 
+    def _start_position_updates(self):
+        """Start a background thread to update position."""
+        self._stop_position_thread = False
+        self._position_thread = threading.Thread(target=self._position_update_loop, daemon=True)
+        self._position_thread.start()
+
+    def _stop_position_updates(self):
+        """Stop the position update thread."""
+        self._stop_position_thread = True
+        if self._position_thread and self._position_thread.is_alive():
+            self._position_thread.join(timeout=0.5)
+
+    def _position_update_loop(self):
+        """Background loop to update position and check for track completion."""
+        last_position = -1
+        stalled_count = 0
+        loop_count = 0
+        was_playing = False
+        
+        while not self._stop_position_thread:
+            try:
+                loop_count += 1
+                
+                # Debug log every ~10 seconds
+                if loop_count % 40 == 0:
+                    print(f"PlayerManager: Position update running - pos={self.position}ms, dur={self.duration}ms, active={self.playback.active}, playing={self.playback.playing}")
+                
+                # Check if playback is active
+                is_active = self.playback.active
+                is_playing = self.playback.playing if is_active else False
+                
+                if is_active:
+                    # Update position (convert seconds to ms)
+                    self.position = int(self.playback.curr_pos * 1000)
+                    
+                    # Notify listeners
+                    for listener in self.position_change_listeners:
+                        try:
+                            listener(self.position, self.duration)
+                        except Exception:
+                            pass
+                    
+                    # Track completion detection method 1: 
+                    # Playback was active and playing, now it's not playing anymore
+                    if was_playing and not is_playing and self.position > 1000:
+                        print(f"PlayerManager: Track completed (playback stopped) - pos={self.position}, dur={self.duration}")
+                        self._stop_position_thread = True
+                        self.page.run_task(self._async_next_track)
+                        break
+                    
+                    # Track completion detection method 2:
+                    # Position near end and stalled
+                    near_end = self.duration > 0 and self.position >= self.duration - 2000
+                    
+                    if near_end:
+                        if self.position == last_position:
+                            stalled_count += 1
+                        else:
+                            stalled_count = 0
+                        
+                        if stalled_count >= 8:  # ~2 seconds stalled at end
+                            print(f"PlayerManager: Track completed (stalled at end) - pos={self.position}, dur={self.duration}")
+                            self._stop_position_thread = True
+                            self.page.run_task(self._async_next_track)
+                            break
+                    
+                    last_position = self.position
+                    was_playing = is_playing
+                else:
+                    # Playback became inactive - track might have ended
+                    if was_playing and self.position > 1000:
+                        print(f"PlayerManager: Track completed (inactive) - pos={self.position}, dur={self.duration}")
+                        self._stop_position_thread = True
+                        self.page.run_task(self._async_next_track)
+                        break
+                        
+            except Exception as e:
+                print(f"Position update error: {e}")
+            
+            time.sleep(0.25)  # Update 4 times per second
+
+    async def _async_next_track(self):
+        """Async wrapper for next_track to be called from background thread."""
+        self.next_track()
+
     def toggle_play_pause(self):
-        if not self.audio:
+        if not self.playback.active:
             return
 
         if self.is_playing:
-            self.audio.pause()
+            self.playback.pause()
             self.is_playing = False
         else:
-            self.audio.resume()
+            self.playback.resume()
             self.is_playing = True
         
         self._notify_state_change()
@@ -149,8 +207,9 @@ class PlayerManager:
                 else:
                     self.current_index = len(self.playlist) - 1
                     # Stop at end of playlist
-                    if self.audio:
-                        self.audio.pause()
+                    self._stop_position_updates()
+                    if self.playback.active:
+                        self.playback.stop()
                     self.is_playing = False
                     self._notify_state_change()
                     return
@@ -163,8 +222,8 @@ class PlayerManager:
 
         # If played more than 3 seconds, restart track
         if self.position > 3000:
-            if self.audio:
-                self.audio.seek(0)
+            self.playback.seek(0)
+            self.position = 0
             return
 
         self.current_index -= 1
@@ -174,12 +233,18 @@ class PlayerManager:
         self.load_current_track()
 
     def seek(self, position_ms):
-        if self.audio:
+        if self.playback.active:
             try:
-                self.audio.seek(position_ms)
-                self.position = position_ms # Optimistic update
+                # just_playback uses seconds
+                self.playback.seek(position_ms / 1000)
+                self.position = position_ms
             except Exception as e:
                 print(f"PlayerManager: Seek error: {e}")
+
+    def set_volume(self, volume):
+        """Set volume (0.0 to 1.0)."""
+        if self.playback.active:
+            self.playback.set_volume(volume)
 
     def toggle_shuffle(self):
         self.is_shuffle = not self.is_shuffle
@@ -189,36 +254,6 @@ class PlayerManager:
         self.is_repeat = not self.is_repeat
         return self.is_repeat
 
-    # --- Event Handlers ---
-
-    def _on_loaded(self, e):
-        print("PlayerManager: Audio loaded")
-        if self.audio:
-            self.audio.play()
-            self.is_playing = True
-            self._notify_state_change()
-
-    def _on_duration_changed(self, e):
-        self.duration = int(e.data)
-        # print(f"PlayerManager: Duration {self.duration}")
-
-    def _on_position_changed(self, e):
-        self.position = int(e.data)
-        for listener in self.position_change_listeners:
-            try:
-                listener(self.position, self.duration)
-            except Exception:
-                pass
-
-    def _on_state_changed(self, e):
-        print(f"PlayerManager: State changed to {e.data}")
-        if e.data == "completed":
-            print("PlayerManager: Track completed, calling next_track")
-            self.next_track()
-
-    def _on_seek_complete(self, e):
-        pass
-
     def _notify_state_change(self):
         for listener in self.state_change_listeners:
             try:
@@ -226,3 +261,9 @@ class PlayerManager:
             except Exception as e:
                 print(f"Error in state change listener: {e}")
         self.page.update()
+
+    def cleanup(self):
+        """Clean up resources when the player is destroyed."""
+        self._stop_position_updates()
+        if self.playback.active:
+            self.playback.stop()
