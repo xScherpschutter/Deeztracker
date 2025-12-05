@@ -1,0 +1,14 @@
+[project]
+name = "deeztracker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "deezspot-spotizerr>=3.1.5",
+    "flet[all]>=0.28.3",
+    "flet-audio>=0.1.0",
+    "flet-cli>=0.28.3",
+    "flet-permission-handler>=0.1.0",
+    "httpx>=0.28.1",
+]
