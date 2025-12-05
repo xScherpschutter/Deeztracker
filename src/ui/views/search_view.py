@@ -23,7 +23,8 @@ class SearchView(ft.View):
         
         self.results_column = ft.ListView(
             spacing=10,
-            expand=True
+            expand=True,
+            padding=ft.padding.only(bottom=100) # Add padding for MiniPlayer
         )
 
         self.progress_container = ft.Container(
@@ -69,7 +70,6 @@ class SearchView(ft.View):
                     ],
                     expand=True
                 ),
-                self.load_more_container
             ], expand=True, spacing=10, alignment=ft.MainAxisAlignment.START)
         ]
 
@@ -145,6 +145,7 @@ class SearchView(ft.View):
             
             if response and response.next:
                 self.next_url = response.next
+                self.results_column.controls.append(self.load_more_container)
                 self.load_more_button.visible = True
             else:
                 self.next_url = None
@@ -166,6 +167,9 @@ class SearchView(ft.View):
 
         self.load_more_button.disabled = True
         self.load_more_button.text = "Cargando..."
+        # Remove button temporarily to avoid duplicates or issues during update
+        if self.load_more_container in self.results_column.controls:
+            self.results_column.controls.remove(self.load_more_container)
         self.update()
 
         try:
@@ -201,6 +205,7 @@ class SearchView(ft.View):
             
             if response and response.next:
                 self.next_url = response.next
+                self.results_column.controls.append(self.load_more_container)
                 self.load_more_button.visible = True
             else:
                 self.next_url = None

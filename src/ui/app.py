@@ -3,10 +3,12 @@ from features.api.service import DeezerAPIService
 from features.downloader.service import DeezloaderService
 
 # Importar vistas
-from ui.views import login_view, search_view, artist_view, album_view, playlist_view, settings_view, local_view
+from ui.views import login_view, search_view, artist_view, album_view, playlist_view, settings_view, local_view, player_view
 from ui.components import appbar # Importar appbar
 from ui import theme
+from ui import theme
 from flet_permission_handler import PermissionHandler
+from features.player.player_manager import PlayerManager
 
 # Un diccionario simple para mantener el estado de la aplicación
 APP_STATE = {
@@ -14,7 +16,9 @@ APP_STATE = {
     "api": None,
     "downloader": None,
     "audio_player": None,
+    "audio_player": None,
     "permission_handler": None,
+    "player_manager": None,
 }
 
 async def main(page: ft.Page):
@@ -32,7 +36,21 @@ async def main(page: ft.Page):
 
     permission_handler = PermissionHandler()
     page.overlay.append(permission_handler)
+    permission_handler = PermissionHandler()
+    page.overlay.append(permission_handler)
     APP_STATE["permission_handler"] = permission_handler
+
+    # Initialize PlayerManager
+    player_manager = PlayerManager(page)
+    APP_STATE["player_manager"] = player_manager
+
+    # Initialize MiniPlayer
+    from ui.components.mini_player import MiniPlayer
+    mini_player = MiniPlayer(page, APP_STATE)
+    mini_player.bottom = 0
+    mini_player.left = 0
+    mini_player.right = 0
+    page.overlay.append(mini_player)
 
     # Intentar cargar ARL de client_storage
     arl_token = await page.client_storage.get_async("arl_token")
@@ -96,6 +114,11 @@ async def main(page: ft.Page):
                 view.appbar = appbar.CustomAppBar(title="Música Local", page=page)
                 page.views.append(view)
 
+            elif page.route == "/player":
+                view = player_view.PlayerView(APP_STATE)
+                # PlayerView might not need an AppBar or a custom one
+                page.views.append(view)
+
             # Añadir una ruta de fallback o una página 404
             else:
                  if not page.views:
@@ -104,6 +127,18 @@ async def main(page: ft.Page):
                     page.views.append(view)
         
         page.update()
+
+        # Update MiniPlayer visibility
+        if "player_manager" in APP_STATE and APP_STATE["player_manager"].current_index != -1:
+            # We need to find the MiniPlayer instance in overlay
+            for control in page.overlay:
+                if isinstance(control, MiniPlayer):
+                    if page.route == "/player":
+                        control.visible = False
+                    else:
+                        control.visible = True
+                    control.update()
+                    break
 
     async def view_pop(view):
         """Manejador para el botón de 'atrás'."""
