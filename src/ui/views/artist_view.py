@@ -7,8 +7,7 @@ class ArtistView(ft.View):
     def __init__(self, app_state, artist_id: str):
         super().__init__(
             route=f"/artist/{artist_id}", 
-            bgcolor=theme.BG_COLOR,
-            scroll=ft.ScrollMode.ADAPTIVE
+            bgcolor=theme.BG_COLOR
         )
         self.snackbar = ft.SnackBar(content=ft.Text(""))
         self.app_state = app_state
@@ -24,7 +23,6 @@ class ArtistView(ft.View):
         self.albums_row = ft.Row(scroll=ft.ScrollMode.ADAPTIVE, spacing=15)
         self.top_tracks_list = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
         
-        self.progress_ring = ft.ProgressRing()
         self.content_column = ft.Column(
             [
                 ft.Row([self.artist_image], alignment=ft.MainAxisAlignment.CENTER),
@@ -39,16 +37,20 @@ class ArtistView(ft.View):
             ],
             spacing=15,
             visible=False,
+            expand=True,
+            scroll=ft.ScrollMode.ADAPTIVE,
+        )
+
+        self.progress_container = ft.Container(
+            content=ft.ProgressRing(),
+            alignment=ft.alignment.center
         )
 
         self.controls = [
             ft.Stack(
                 [
                     self.content_column,
-                    ft.Container(
-                        content=self.progress_ring,
-                        alignment=ft.alignment.center
-                    )
+                    self.progress_container,
                 ],
                 expand=True
             )
@@ -101,11 +103,11 @@ class ArtistView(ft.View):
                         )
                     )
 
-            self.progress_ring.visible = False
+            self.progress_container.visible = False
             self.content_column.visible = True
         except Exception as e:
             print(f"Error cargando artista: {e}")
-            self.progress_ring.visible = False
+            self.progress_container.visible = False
             self.content_column.controls.clear()
             self.content_column.controls.append(ft.Text("Error al cargar datos del artista.", color=theme.ERROR_COLOR))
             self.content_column.visible = True

@@ -101,6 +101,7 @@ async def main(page: ft.Page):
 
             elif page.route == "/player":
                 view = player_view.PlayerView(APP_STATE)
+                view.appbar = appbar.CustomAppBar(title="Reproductor", page=page)
                 page.views.append(view)
 
             # Añadir una ruta de fallback o una página 404

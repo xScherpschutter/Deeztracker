@@ -43,10 +43,12 @@ class LoginView(ft.View):
                         self.status_text,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    alignment=ft.MainAxisAlignment.CENTER,
                     spacing=20,
                 ),
                 alignment=ft.alignment.center,
                 expand=True,
+                padding=20,
             )
         ]
 
