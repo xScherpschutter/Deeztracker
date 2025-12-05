@@ -1,14 +1,15 @@
 import asyncio
 from deezspot import DeeLogin
 from pydantic import HttpUrl
+from features.downloader.utils import get_deeztracker_music_folder
 
 class DeezloaderService:
     VALID_QUALITY_DOWNLOAD = ["FLAC", "MP3_320", "MP3_128"]
     VALID_CONVERT_TO = ["flac", "mp3-128", "mp3-320"]
     
-    def __init__(self, arl: str, output_dir: str = "./music_downloads", quality_download: str = "FLAC", convert_to: str = "flac", recursive_quality: bool = True):
+    def __init__(self, arl: str, output_dir: str = None, quality_download: str = "FLAC", convert_to: str = "flac", recursive_quality: bool = True):
         self.deez: DeeLogin = DeeLogin(arl=arl)
-        self.output_dir = output_dir
+        self.output_dir = output_dir if output_dir else get_deeztracker_music_folder()
         self.quality_download = quality_download if quality_download in self.VALID_QUALITY_DOWNLOAD else self.VALID_QUALITY_DOWNLOAD[0]
         self.recursive_quality = recursive_quality
         self.convert_to = convert_to if convert_to in self.VALID_CONVERT_TO else self.VALID_CONVERT_TO[0]

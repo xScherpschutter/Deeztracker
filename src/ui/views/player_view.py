@@ -148,7 +148,14 @@ class PlayerView(ft.View):
     def update_track_info(self, track):
         self.track_title.value = track.get('title', 'Desconocido')
         self.artist_name.value = track.get('artist', 'Desconocido')
-        self.cover_image.content.src = track.get('cover', 'https://via.placeholder.com/300')
+        
+        # Use cover if exists and not empty, otherwise placeholder
+        cover = track.get('cover', '')
+        if cover and cover.strip():
+            self.cover_image.content.src = cover
+        else:
+            self.cover_image.content.src = "https://via.placeholder.com/300"
+        
         self.update()
 
     def update_play_state(self, is_playing):

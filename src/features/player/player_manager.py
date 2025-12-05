@@ -20,6 +20,9 @@ class PlayerManager:
         self.duration = 0  # in milliseconds
         self.position = 0  # in milliseconds
         
+        # Flag to distinguish user pause from track end
+        self._user_paused = False
+        
         # Listeners
         self.track_change_listeners = []
         self.position_change_listeners = []
@@ -70,6 +73,9 @@ class PlayerManager:
             if self.playback.active:
                 self.playback.stop()
 
+            # Reset pause flag
+            self._user_paused = False
+
             # Load and play the new track
             self.playback.load_file(track['path'])
             self.duration = int(self.playback.duration * 1000)  # Convert to ms
@@ -112,22 +118,22 @@ class PlayerManager:
         last_position = -1
         stalled_count = 0
         loop_count = 0
-        was_playing = False
         
         while not self._stop_position_thread:
             try:
                 loop_count += 1
                 
-                # Debug log every ~10 seconds
-                if loop_count % 40 == 0:
-                    print(f"PlayerManager: Position update running - pos={self.position}ms, dur={self.duration}ms, active={self.playback.active}, playing={self.playback.playing}")
+                # Skip everything if user paused
+                if self._user_paused:
+                    time.sleep(0.25)
+                    continue
                 
-                # Check if playback is active
+                # Check playback state
                 is_active = self.playback.active
                 is_playing = self.playback.playing if is_active else False
                 
+                # Update position if active
                 if is_active:
-                    # Update position (convert seconds to ms)
                     self.position = int(self.playback.curr_pos * 1000)
                     
                     # Notify listeners
@@ -136,45 +142,46 @@ class PlayerManager:
                             listener(self.position, self.duration)
                         except Exception:
                             pass
-                    
-                    # Track completion detection method 1: 
-                    # Playback was active and playing, now it's not playing anymore
-                    if was_playing and not is_playing and self.position > 1000:
-                        print(f"PlayerManager: Track completed (playback stopped) - pos={self.position}, dur={self.duration}")
-                        self._stop_position_thread = True
-                        self.page.run_task(self._async_next_track)
-                        break
-                    
-                    # Track completion detection method 2:
-                    # Position near end and stalled
-                    near_end = self.duration > 0 and self.position >= self.duration - 2000
-                    
-                    if near_end:
-                        if self.position == last_position:
-                            stalled_count += 1
-                        else:
-                            stalled_count = 0
-                        
-                        if stalled_count >= 8:  # ~2 seconds stalled at end
-                            print(f"PlayerManager: Track completed (stalled at end) - pos={self.position}, dur={self.duration}")
-                            self._stop_position_thread = True
-                            self.page.run_task(self._async_next_track)
-                            break
-                    
-                    last_position = self.position
-                    was_playing = is_playing
+                
+                # Debug log every ~5 seconds
+                if loop_count % 20 == 0:
+                    print(f"PlayerManager: pos={self.position}ms, dur={self.duration}ms, active={is_active}, playing={is_playing}, stalled={stalled_count}")
+                
+                # ===== TRACK COMPLETION DETECTION =====
+                # These checks are OUTSIDE of `if is_active` because playback may become inactive when done
+                
+                # Method 1: Playback stopped naturally (playing=False, not paused by user)
+                if not is_playing and self.position > 1000:
+                    print(f"PlayerManager: Track completed (not playing) - pos={self.position}, dur={self.duration}")
+                    self._stop_position_thread = True
+                    self.page.run_task(self._async_next_track)
+                    break
+                
+                # Method 2: Position >= duration
+                if self.duration > 0 and self.position >= self.duration:
+                    print(f"PlayerManager: Track completed (pos >= dur) - pos={self.position}, dur={self.duration}")
+                    self._stop_position_thread = True
+                    self.page.run_task(self._async_next_track)
+                    break
+                
+                # Method 3: Position stalled when past 90%
+                if self.position == last_position:
+                    stalled_count += 1
                 else:
-                    # Playback became inactive - track might have ended
-                    if was_playing and self.position > 1000:
-                        print(f"PlayerManager: Track completed (inactive) - pos={self.position}, dur={self.duration}")
-                        self._stop_position_thread = True
-                        self.page.run_task(self._async_next_track)
-                        break
+                    stalled_count = 0
+                
+                if stalled_count >= 4 and self.duration > 0 and self.position > (self.duration * 0.9):
+                    print(f"PlayerManager: Track completed (stalled) - pos={self.position}, dur={self.duration}")
+                    self._stop_position_thread = True
+                    self.page.run_task(self._async_next_track)
+                    break
+                
+                last_position = self.position
                         
             except Exception as e:
                 print(f"Position update error: {e}")
             
-            time.sleep(0.25)  # Update 4 times per second
+            time.sleep(0.25)
 
     async def _async_next_track(self):
         """Async wrapper for next_track to be called from background thread."""
@@ -185,9 +192,11 @@ class PlayerManager:
             return
 
         if self.is_playing:
+            self._user_paused = True  # Mark as user-initiated pause
             self.playback.pause()
             self.is_playing = False
         else:
+            self._user_paused = False  # Resume, clear the pause flag
             self.playback.resume()
             self.is_playing = True
         

@@ -52,7 +52,13 @@ class MiniPlayer(ft.Container):
     def on_track_change(self, track):
         self.track_title.value = track.get('title', 'Desconocido')
         self.artist_name.value = track.get('artist', 'Desconocido')
-        self.cover_image.src = track.get('cover', 'https://via.placeholder.com/50')
+        
+        # Use cover if exists and not empty, otherwise placeholder
+        cover = track.get('cover', '')
+        if cover and cover.strip():
+            self.cover_image.src = cover
+        else:
+            self.cover_image.src = "https://via.placeholder.com/50"
         
         # Only show if not on player view
         if self.page.route != "/player":
