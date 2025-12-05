@@ -7,6 +7,9 @@ class SearchView(ft.View):
         super().__init__(route="/search", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
         self.api = app_state["api"]
+        self.next_url = None
+        self.current_query = ""
+        self.current_tab_index = 0
 
         self.search_field = ft.TextField(
             hint_text="Busca un artista, álbum, canción...",
@@ -27,6 +30,20 @@ class SearchView(ft.View):
             content=ft.ProgressRing(),
             alignment=ft.alignment.center,
             visible=False # Inicialmente invisible
+        )
+
+        self.load_more_button = ft.ElevatedButton(
+            text="Cargar más",
+            on_click=self.load_more,
+            visible=False,
+            bgcolor=theme.ACCENT_COLOR,
+            color=theme.PRIMARY_TEXT
+        )
+        
+        self.load_more_container = ft.Container(
+            content=self.load_more_button,
+            alignment=ft.alignment.center,
+            padding=10
         )
         
         self.search_tabs = ft.Tabs(
@@ -51,7 +68,8 @@ class SearchView(ft.View):
                         self.progress_container
                     ],
                     expand=True
-                )
+                ),
+                self.load_more_container
             ], expand=True, spacing=10, alignment=ft.MainAxisAlignment.START)
         ]
 
@@ -81,6 +99,8 @@ class SearchView(ft.View):
         self.results_column.controls.clear()
         self.results_column.controls.append(ft.Text("Buscando...", color=theme.SECONDARY_TEXT))
         self.progress_container.visible = True
+        self.load_more_button.visible = False
+        self.current_query = query
         self.update()
 
         try:
@@ -103,6 +123,8 @@ class SearchView(ft.View):
                 item_type = "playlist"
                 response = await self.api.search_playlists(query)
 
+            self.current_tab_index = selected_tab
+
             self.results_column.controls.clear()
             if response and response.data:
                 for item in response.data:
@@ -118,6 +140,13 @@ class SearchView(ft.View):
                 self.results_column.controls.append(
                     ft.Text("No se encontraron resultados.", color=theme.SECONDARY_TEXT)
                 )
+            
+            if response and response.next:
+                self.next_url = response.next
+                self.load_more_button.visible = True
+            else:
+                self.next_url = None
+                self.load_more_button.visible = False
 
         except Exception as ex:
             print(f"Error en la búsqueda: {ex}")
@@ -127,6 +156,60 @@ class SearchView(ft.View):
             )
         finally:
             self.progress_container.visible = False
+            self.update()
+
+    async def load_more(self, e):
+        if not self.next_url:
+            return
+
+        self.load_more_button.disabled = True
+        self.load_more_button.text = "Cargando..."
+        self.update()
+
+        try:
+            selected_tab = self.current_tab_index
+            item_type = ""
+            response = None
+            on_download = None
+
+            if selected_tab == 0:
+                item_type = "artist"
+                response = await self.api.search_artists(self.current_query, next=self.next_url)
+            elif selected_tab == 1:
+                item_type = "album"
+                response = await self.api.search_albums(self.current_query, next=self.next_url)
+            elif selected_tab == 2:
+                item_type = "track"
+                response = await self.api.search_tracks(self.current_query, next=self.next_url)
+                on_download = self.download_track
+            elif selected_tab == 3:
+                item_type = "playlist"
+                response = await self.api.search_playlists(self.current_query, next=self.next_url)
+
+            if response and response.data:
+                for item in response.data:
+                    self.results_column.controls.append(
+                        list_items.SearchResultItem(
+                            page=self.page, 
+                            item_data=item, 
+                            item_type=item_type,
+                            on_download=on_download
+                        )
+                    )
+            
+            if response and response.next:
+                self.next_url = response.next
+                self.load_more_button.visible = True
+            else:
+                self.next_url = None
+                self.load_more_button.visible = False
+
+        except Exception as ex:
+            print(f"Error al cargar más resultados: {ex}")
+            self.page.open(ft.SnackBar(ft.Text(f"Error al cargar más resultados: {ex}", color=theme.ERROR_COLOR)))
+        finally:
+            self.load_more_button.disabled = False
+            self.load_more_button.text = "Cargar más"
             self.update()
 
     async def tab_changed(self, e):
