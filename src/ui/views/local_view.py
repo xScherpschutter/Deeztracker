@@ -95,19 +95,25 @@ class LocalView(ft.View):
     def _scan_directories_sync(self, scan_dirs):
         """Synchronous file scanning - runs in a separate thread."""
         music_files = []
+        seen_paths = set()  # Track already-added files to avoid duplicates
         
         for directory in scan_dirs:
             try:
                 for root, dirs, files in os.walk(directory):
                     for file in files:
                         if file.lower().endswith(('.mp3', '.flac', '.wav', '.m4a', '.ogg', '.wma')):
-                            full_path = os.path.join(root, file)
+                            full_path = os.path.normpath(os.path.join(root, file))
+                            
+                            # Skip if already added (handles overlapping directories)
+                            if full_path in seen_paths:
+                                continue
+                            seen_paths.add(full_path)
+                            
                             try:
                                 metadata = self.get_metadata(full_path)
                                 music_files.append(metadata)
                             except Exception as e:
                                 print(f"Error reading file {full_path}: {e}")
-                                # Add basic metadata without cover
                                 music_files.append({
                                     "path": full_path,
                                     "title": os.path.splitext(os.path.basename(full_path))[0],

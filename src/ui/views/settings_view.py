@@ -34,6 +34,17 @@ class SettingsView(ft.View):
                     
                     ft.Text("Descargas", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
                     self.format_dropdown,
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=theme.SECONDARY_TEXT),
+                            ft.Text(
+                                "Nota: La conversión a FLAC solo está disponible en Linux\ncon FFmpeg instalado. En otros sistemas será MP3.",
+                                size=12,
+                                color=theme.SECONDARY_TEXT,
+                            ),
+                        ], spacing=8),
+                        padding=ft.padding.only(top=5),
+                    ),
                     ft.Divider(color=theme.SECONDARY_TEXT),
 
                     ft.Text("Sesión", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
