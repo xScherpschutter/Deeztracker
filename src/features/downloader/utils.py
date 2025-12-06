@@ -102,6 +102,12 @@ def get_deeztracker_music_folder() -> str:
     return deeztracker_folder
 
 
+def get_custom_music_folder(custom_path: str = None) -> str:
+    if custom_path and os.path.exists(custom_path):
+        return custom_path
+    return get_deeztracker_music_folder()
+
+
 # Información del sistema para debugging
 def get_system_info() -> dict:
     """Obtiene información del sistema para debugging.
@@ -115,4 +121,15 @@ def get_system_info() -> dict:
         "music_folder": get_music_folder(),
         "downloads_folder": get_downloads_folder(),
         "deeztracker_folder": get_deeztracker_music_folder(),
+    }
+
+
+def get_system_info_with_custom(custom_path: str = None) -> dict:
+    return {
+        "os": get_os_name(),
+        "platform": sys.platform,
+        "music_folder": get_music_folder(),
+        "downloads_folder": get_downloads_folder(),
+        "deeztracker_folder": get_deeztracker_music_folder(),
+        "custom_music_folder": get_custom_music_folder(custom_path),
     }

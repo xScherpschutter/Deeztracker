@@ -1,6 +1,7 @@
 import flet as ft
 from features.api.service import DeezerAPIService
 from features.downloader.service import DeezloaderService
+from features.downloader.utils import get_custom_music_folder
 
 # Importar vistas
 from ui.views import login_view, search_view, artist_view, album_view, playlist_view, settings_view, local_view, player_view
@@ -39,10 +40,13 @@ async def main(page: ft.Page):
 
     # Intentar cargar ARL de client_storage
     arl_token = await page.client_storage.get_async("arl_token")
+    custom_music_path = await page.client_storage.get_async("music_folder_path")
+    
     if arl_token:
         print("ARL token encontrado en storage. Inicializando servicios...")
         try:
-            downloader = DeezloaderService(arl=arl_token)
+            output_dir = get_custom_music_folder(custom_music_path)
+            downloader = DeezloaderService(arl=arl_token, output_dir=output_dir)
             APP_STATE["arl"] = arl_token
             APP_STATE["api"] = DeezerAPIService()
             APP_STATE["downloader"] = downloader
