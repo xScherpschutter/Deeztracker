@@ -1,3 +1,5 @@
+import sys
+import os
 import flet as ft
 import vlc
 import random
@@ -11,6 +13,7 @@ class PlayerManager:
         self.page = page
         self.playlist = []
         self.current_index = -1
+
         self.is_playing = False
         self.is_shuffle = False
         self.is_repeat = False
@@ -23,6 +26,11 @@ class PlayerManager:
         
         try:
             # Try to initialize VLC
+            if getattr(sys, 'frozen', False):
+                bundle_dir = sys._MEIPASS
+                plugin_path = os.path.join(bundle_dir, 'vlc_plugins')
+                os.environ['VLC_PLUGIN_PATH'] = plugin_path
+
             self.vlc_instance = vlc.Instance()
             self.player = self.vlc_instance.media_player_new()
             
@@ -34,25 +42,18 @@ class PlayerManager:
         except (NameError, OSError, AttributeError) as e:
             print(f"VLC initialization failed: {e}")
             print("Please install VLC system dependencies (e.g., 'sudo apt install vlc libvlc-dev')")
-            # We will notify the user via UI in a moment (cannot do it in __init__ safely before page is fully ready sometimes, 
-            # but here we have page reference)
-            
-            # Schedule a warning snackbar
+
             def show_vlc_warning():
-                page.snack_bar = ft.SnackBar(
+                snack_bar = ft.SnackBar(
                     content=ft.Text("VLC libraries not found. Audio playback will not work. Please install VLC."),
                     bgcolor=ft.colors.ERROR,
                     duration=10000,
                     action="OK"
                 )
-                page.snack_bar.open = True
-                page.update()
+                self.page.open(snack_bar)
+                self.page.update()
             
-            # Use a small delay or run on next frame to ensure UI is ready
-            # But since we are in __init__, we can't easily schedule on page yet if it's not running? 
-            # Actually page is passed in. We can try to run it.
-            # However, to be safe, we'll just print for now and let the methods fail gracefully.
-            pass
+            show_vlc_warning()
             
         # State for UI
         self.duration = 0  # in milliseconds
@@ -75,7 +76,7 @@ class PlayerManager:
         try:
             self.media_notifications = MediaNotificationManager(self)
         except Exception as e:
-            print(f"⚠️ Could not initialize media notifications: {e}")
+            print(f"Could not initialize media notifications: {e}")
 
     def subscribe(self, on_track_change=None, on_state_change=None, on_position_change=None):
         if on_track_change:
