@@ -38,7 +38,7 @@ class SettingsView(ft.View):
                         content=ft.Row([
                             ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=theme.SECONDARY_TEXT),
                             ft.Text(
-                                "Nota: La conversión a FLAC solo está disponible en Linux\ncon FFmpeg instalado. En otros sistemas será MP3.",
+                                "Nota: La conversión a FLAC solo está disponible \nsi se tiene FFmpeg instalado, de lo contrario será MP3.",
                                 size=12,
                                 color=theme.SECONDARY_TEXT,
                             ),
