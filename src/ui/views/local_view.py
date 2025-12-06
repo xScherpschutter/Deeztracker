@@ -72,7 +72,7 @@ class LocalView(ft.View):
                 content=ft.Column(
                     [
                         ft.Row([
-                            ft.Text("Música Local", size=24, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
+                            ft.Text("Encuentra tu música", size=24, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
                             ft.Container(expand=True),
                             ft.IconButton(
                                 icon=ft.Icons.REFRESH,

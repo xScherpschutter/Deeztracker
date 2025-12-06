@@ -137,5 +137,32 @@ async def main(page: ft.Page):
     page.on_route_change = route_change
     page.on_view_pop = view_pop
     
+    def on_keyboard(e: ft.KeyboardEvent):
+        if not APP_STATE["player_manager"]:
+            return
+
+        if e.key == "ArrowUp" or e.key == "AudioVolumeUp":
+            current_vol = APP_STATE["player_manager"].volume
+            new_vol = min(1.0, current_vol + 0.05)
+            APP_STATE["player_manager"].set_volume(new_vol)
+        elif e.key == "ArrowDown" or e.key == "AudioVolumeDown":
+            current_vol = APP_STATE["player_manager"].volume
+            new_vol = max(0.0, current_vol - 0.05)
+            APP_STATE["player_manager"].set_volume(new_vol)
+        elif e.key == "AudioVolumeMute":
+            # Simple mute toggle: if > 0 set to 0, else set to 0.5 (or previous if we tracked it)
+            if APP_STATE["player_manager"].volume > 0:
+                APP_STATE["player_manager"].set_volume(0)
+            else:
+                APP_STATE["player_manager"].set_volume(0.5) # Default un-mute volume
+        elif e.key == "MediaPlayPause":
+            APP_STATE["player_manager"].toggle_play_pause()
+        elif e.key == "MediaTrackNext":
+            APP_STATE["player_manager"].next_track()
+        elif e.key == "MediaTrackPrevious":
+            APP_STATE["player_manager"].prev_track()
+
+    page.on_keyboard_event = on_keyboard
+    
     # Iniciar en la ruta inicial determinada
     page.go(initial_route)

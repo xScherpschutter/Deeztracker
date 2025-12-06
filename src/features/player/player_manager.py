@@ -17,6 +17,7 @@ class PlayerManager:
         self.is_playing = False
         self.is_shuffle = False
         self.is_repeat = False
+        self.volume = 1.0
         
         # VLC instance and player
         self.vlc_available = False
@@ -65,7 +66,10 @@ class PlayerManager:
         # Listeners
         self.track_change_listeners = []
         self.position_change_listeners = []
+        self.track_change_listeners = []
+        self.position_change_listeners = []
         self.state_change_listeners = []
+        self.volume_change_listeners = []
         
         # Position update thread
         self._position_thread = None
@@ -78,21 +82,25 @@ class PlayerManager:
         except Exception as e:
             print(f"Could not initialize media notifications: {e}")
 
-    def subscribe(self, on_track_change=None, on_state_change=None, on_position_change=None):
+    def subscribe(self, on_track_change=None, on_state_change=None, on_position_change=None, on_volume_change=None):
         if on_track_change:
             self.track_change_listeners.append(on_track_change)
         if on_state_change:
             self.state_change_listeners.append(on_state_change)
         if on_position_change:
             self.position_change_listeners.append(on_position_change)
+        if on_volume_change:
+            self.volume_change_listeners.append(on_volume_change)
 
-    def unsubscribe(self, on_track_change=None, on_state_change=None, on_position_change=None):
+    def unsubscribe(self, on_track_change=None, on_state_change=None, on_position_change=None, on_volume_change=None):
         if on_track_change and on_track_change in self.track_change_listeners:
             self.track_change_listeners.remove(on_track_change)
         if on_state_change and on_state_change in self.state_change_listeners:
             self.state_change_listeners.remove(on_state_change)
         if on_position_change and on_position_change in self.position_change_listeners:
             self.position_change_listeners.remove(on_position_change)
+        if on_volume_change and on_volume_change in self.volume_change_listeners:
+            self.volume_change_listeners.remove(on_volume_change)
 
     def play_track(self, track, playlist=None):
         """Starts playing a specific track, optionally updating the playlist."""
@@ -324,6 +332,8 @@ class PlayerManager:
             # VLC uses 0-100 scale
             vlc_volume = int(volume * 100)
             self.player.audio_set_volume(vlc_volume)
+            self.volume = volume
+            self._notify_volume_change()
         except Exception as e:
             print(f"PlayerManager: Volume error: {e}")
 
@@ -346,6 +356,14 @@ class PlayerManager:
         if self.media_notifications:
             self.media_notifications.update_playback_state(self.is_playing)
         
+        self.page.update()
+
+    def _notify_volume_change(self):
+        for listener in self.volume_change_listeners:
+            try:
+                listener(self.volume)
+            except Exception as e:
+                print(f"Error in volume change listener: {e}")
         self.page.update()
 
     def cleanup(self):

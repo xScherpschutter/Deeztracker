@@ -47,6 +47,15 @@ class PlayerView(ft.View):
         self.position_text = ft.Text("0:00", color=theme.SECONDARY_TEXT, size=12)
         self.duration_text = ft.Text("0:00", color=theme.SECONDARY_TEXT, size=12)
         
+        # Volume Control
+        self.volume_slider = ft.Slider(
+            min=0, max=1, value=self.player_manager.volume,
+            on_change=self.change_volume,
+            active_color=theme.ACCENT_COLOR,
+            width=150
+        )
+        self.volume_icon = ft.Icon(ft.Icons.VOLUME_UP, color=theme.SECONDARY_TEXT)
+        
         # Controls
         self.shuffle_btn = ft.IconButton(
             icon=ft.Icons.SHUFFLE,
@@ -114,6 +123,15 @@ class PlayerView(ft.View):
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_EVENLY,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER
+                    ),
+                    ft.Container(height=20),
+                    ft.Row(
+                        [
+                            self.volume_icon,
+                            self.volume_slider
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER
                     )
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -126,7 +144,8 @@ class PlayerView(ft.View):
         self.player_manager.subscribe(
             on_track_change=self.update_track_info,
             on_state_change=self.update_play_state,
-            on_position_change=self.update_position
+            on_position_change=self.update_position,
+            on_volume_change=self.update_volume
         )
         
         # Load current state
@@ -142,7 +161,8 @@ class PlayerView(ft.View):
         self.player_manager.unsubscribe(
             on_track_change=self.update_track_info,
             on_state_change=self.update_play_state,
-            on_position_change=self.update_position
+            on_position_change=self.update_position,
+            on_volume_change=self.update_volume
         )
 
     def update_track_info(self, track):
@@ -170,6 +190,17 @@ class PlayerView(ft.View):
             self.duration_text.value = self.format_time(duration)
             self.update()
 
+    def update_volume(self, volume):
+        self.volume_slider.value = volume
+        # Update icon based on volume
+        if volume == 0:
+            self.volume_icon.name = ft.Icons.VOLUME_OFF
+        elif volume < 0.5:
+            self.volume_icon.name = ft.Icons.VOLUME_DOWN
+        else:
+            self.volume_icon.name = ft.Icons.VOLUME_UP
+        self.update()
+
     def seek_audio(self, e):
         self.player_manager.seek(int(e.control.value))
 
@@ -182,6 +213,19 @@ class PlayerView(ft.View):
         is_repeat = self.player_manager.toggle_repeat()
         self.repeat_btn.icon_color = theme.ACCENT_COLOR if is_repeat else theme.SECONDARY_TEXT
         self.update()
+
+    def change_volume(self, e):
+        volume = float(e.control.value)
+        self.player_manager.set_volume(volume)
+        
+        # Update icon based on volume
+        if volume == 0:
+            self.volume_icon.name = ft.Icons.VOLUME_OFF
+        elif volume < 0.5:
+            self.volume_icon.name = ft.Icons.VOLUME_DOWN
+        else:
+            self.volume_icon.name = ft.Icons.VOLUME_UP
+        self.volume_icon.update()
 
     def format_time(self, milliseconds):
         seconds = int(milliseconds / 1000)
