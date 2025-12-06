@@ -8,5 +8,6 @@ wheels/
 temp_audio/
 storage/
 music_downloads/
+*.spec
 # Virtual environments
 .venv

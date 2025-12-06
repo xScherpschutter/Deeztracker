@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['src\\main.py'],
+    ['src/main.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -35,6 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='C:\\Users\\DELL INSPIRON\\AppData\\Local\\Temp\\5083c2be-ae34-485f-840a-ee0296cc1a29',
-    icon=['assets\\icon_windows.png'],
+    icon=['assets/icon_windows.png'],
 )
