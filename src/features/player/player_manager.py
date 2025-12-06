@@ -16,9 +16,44 @@ class PlayerManager:
         self.is_repeat = False
         
         # VLC instance and player
-        self.vlc_instance = vlc.Instance()
-        self.player = self.vlc_instance.media_player_new()
+        self.vlc_available = False
+        self.vlc_instance = None
+        self.player = None
+        self.event_manager = None
         
+        try:
+            # Try to initialize VLC
+            self.vlc_instance = vlc.Instance()
+            self.player = self.vlc_instance.media_player_new()
+            
+            # VLC event manager for track completion
+            self.event_manager = self.player.event_manager()
+            self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
+            
+            self.vlc_available = True
+        except (NameError, OSError, AttributeError) as e:
+            print(f"VLC initialization failed: {e}")
+            print("Please install VLC system dependencies (e.g., 'sudo apt install vlc libvlc-dev')")
+            # We will notify the user via UI in a moment (cannot do it in __init__ safely before page is fully ready sometimes, 
+            # but here we have page reference)
+            
+            # Schedule a warning snackbar
+            def show_vlc_warning():
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text("VLC libraries not found. Audio playback will not work. Please install VLC."),
+                    bgcolor=ft.colors.ERROR,
+                    duration=10000,
+                    action="OK"
+                )
+                page.snack_bar.open = True
+                page.update()
+            
+            # Use a small delay or run on next frame to ensure UI is ready
+            # But since we are in __init__, we can't easily schedule on page yet if it's not running? 
+            # Actually page is passed in. We can try to run it.
+            # However, to be safe, we'll just print for now and let the methods fail gracefully.
+            pass
+            
         # State for UI
         self.duration = 0  # in milliseconds
         self.position = 0  # in milliseconds
@@ -34,10 +69,6 @@ class PlayerManager:
         # Position update thread
         self._position_thread = None
         self._stop_position_thread = False
-        
-        # VLC event manager for track completion
-        self.event_manager = self.player.event_manager()
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
         
         # Initialize media notifications
         self.media_notifications = None
@@ -84,6 +115,19 @@ class PlayerManager:
         try:
             # Stop any current playback
             self._stop_position_updates()
+            
+            if not self.vlc_available:
+                print("PlayerManager: VLC not available, skipping playback")
+                # Still notify listeners so UI updates with track info
+                self.is_playing = False
+                self._notify_state_change()
+                for listener in self.track_change_listeners:
+                    try:
+                        listener(track)
+                    except Exception:
+                        pass
+                return
+
             if self.player.is_playing():
                 self.player.stop()
 
@@ -153,6 +197,9 @@ class PlayerManager:
 
     def _start_position_updates(self):
         """Start a background thread to update position."""
+        if not self.vlc_available:
+            return
+            
         self._stop_position_thread = False
         self._position_thread = threading.Thread(target=self._position_update_loop, daemon=True)
         self._position_thread.start()
@@ -201,7 +248,7 @@ class PlayerManager:
         self.next_track()
 
     def toggle_play_pause(self):
-        if not self.player.get_media():
+        if not self.vlc_available or not self.player.get_media():
             return
 
         if self.is_playing:
@@ -230,7 +277,7 @@ class PlayerManager:
                     self.current_index = len(self.playlist) - 1
                     # Stop at end of playlist
                     self._stop_position_updates()
-                    if self.player.is_playing():
+                    if self.vlc_available and self.player.is_playing():
                         self.player.stop()
                     self.is_playing = False
                     self._notify_state_change()
@@ -244,7 +291,8 @@ class PlayerManager:
 
         # If played more than 3 seconds, restart track
         if self.position > 3000:
-            self.player.set_time(0)
+            if self.vlc_available:
+                self.player.set_time(0)
             self.position = 0
             return
 
@@ -255,6 +303,9 @@ class PlayerManager:
         self.load_current_track()
 
     def seek(self, position_ms):
+        if not self.vlc_available:
+            return
+            
         if self.player.get_media():
             try:
                 # VLC uses milliseconds
@@ -265,6 +316,9 @@ class PlayerManager:
 
     def set_volume(self, volume):
         """Set volume (0.0 to 1.0)."""
+        if not self.vlc_available:
+            return
+            
         try:
             # VLC uses 0-100 scale
             vlc_volume = int(volume * 100)
@@ -296,6 +350,10 @@ class PlayerManager:
     def cleanup(self):
         """Clean up resources when the player is destroyed."""
         self._stop_position_updates()
+        
+        if not self.vlc_available:
+            return
+            
         if self.player.is_playing():
             self.player.stop()
         if self.media_notifications:
