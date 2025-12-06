@@ -9,7 +9,7 @@ dependencies = [
     "flet",
     "httpx",
     "mutagen",
-    "just-playback"
+    "just-playback",
 ]
 
 [tool.flet]

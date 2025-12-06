@@ -8,18 +8,21 @@ import mutagen
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 from mutagen.flac import FLAC
-from features.downloader.utils import get_os_name, get_music_folder, get_deeztracker_music_folder
+from features.downloader.utils import get_os_name, get_music_folder, get_deeztracker_music_folder, get_custom_music_folder
 
 # Cover cache directory
 COVER_CACHE_DIR = os.path.join(tempfile.gettempdir(), "deeztracker_covers")
 os.makedirs(COVER_CACHE_DIR, exist_ok=True)
 
-def get_music_directories():
-    """Get OS-specific music directories to scan."""
-    directories = [
-        get_deeztracker_music_folder(),  # App-specific folder first
-        get_music_folder(),               # System music folder
-    ]
+def get_music_directories(custom_path: str = None):
+    directories = []
+    
+    if custom_path and os.path.exists(custom_path):
+        directories.append(custom_path)
+    else:
+        directories.append(get_deeztracker_music_folder())  
+    
+    directories.append(get_music_folder())  
     
     user_home = os.path.expanduser("~")
     
@@ -45,6 +48,7 @@ class LocalView(ft.View):
         super().__init__(route="/local", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
         self.player_manager = app_state["player_manager"]
+        self.custom_music_path = None  # Will be loaded from storage
         
         self.music_files = []
         self.filtered_files = []
@@ -90,7 +94,12 @@ class LocalView(ft.View):
         ]
 
     def did_mount(self):
-        self.page.run_task(self.load_local_music)
+        self.page.run_task(self.load_and_scan_music)
+
+    async def load_and_scan_music(self):
+        # Load custom music path from storage
+        self.custom_music_path = await self.page.client_storage.get_async("music_folder_path")
+        await self.load_local_music()
 
     def _scan_directories_sync(self, scan_dirs):
         """Synchronous file scanning - runs in a separate thread."""
@@ -140,8 +149,8 @@ class LocalView(ft.View):
         )
         self.update()
         
-        # Get OS-specific directories
-        scan_dirs = get_music_directories()
+        # Get OS-specific directories with custom path
+        scan_dirs = get_music_directories(self.custom_music_path)
         self.scan_info.value = f"Escaneando {len(scan_dirs)} directorios..."
         self.update()
         
