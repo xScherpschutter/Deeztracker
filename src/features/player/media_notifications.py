@@ -3,7 +3,6 @@ Media Notifications Manager
 Handles native OS media notifications (SMTC on Windows, MPRIS on Linux)
 """
 import platform
-from typing import Optional, Callable
 
 class MediaNotificationManager:
     """Cross-platform media notification manager"""
