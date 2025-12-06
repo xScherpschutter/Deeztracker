@@ -1,8 +1,10 @@
 import flet as ft
-from just_playback import Playback
+import vlc
 import random
 import threading
 import time
+import platform
+from .media_notifications import MediaNotificationManager
 
 class PlayerManager:
     def __init__(self, page: ft.Page):
@@ -13,8 +15,9 @@ class PlayerManager:
         self.is_shuffle = False
         self.is_repeat = False
         
-        # just_playback instance
-        self.playback = Playback()
+        # VLC instance and player
+        self.vlc_instance = vlc.Instance()
+        self.player = self.vlc_instance.media_player_new()
         
         # State for UI
         self.duration = 0  # in milliseconds
@@ -31,6 +34,17 @@ class PlayerManager:
         # Position update thread
         self._position_thread = None
         self._stop_position_thread = False
+        
+        # VLC event manager for track completion
+        self.event_manager = self.player.event_manager()
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
+        
+        # Initialize media notifications
+        self.media_notifications = None
+        try:
+            self.media_notifications = MediaNotificationManager(self)
+        except Exception as e:
+            print(f"⚠️ Could not initialize media notifications: {e}")
 
     def subscribe(self, on_track_change=None, on_state_change=None, on_position_change=None):
         if on_track_change:
@@ -70,18 +84,41 @@ class PlayerManager:
         try:
             # Stop any current playback
             self._stop_position_updates()
-            if self.playback.active:
-                self.playback.stop()
+            if self.player.is_playing():
+                self.player.stop()
 
             # Reset pause flag
             self._user_paused = False
 
-            # Load and play the new track
-            self.playback.load_file(track['path'])
-            self.duration = int(self.playback.duration * 1000)  # Convert to ms
+            # Create VLC media and set metadata
+            media = self.vlc_instance.media_new(track['path'])
+            
+            # Set metadata for native OS notifications
+            media.set_meta(vlc.Meta.Title, track.get('title', 'Unknown'))
+            media.set_meta(vlc.Meta.Artist, track.get('artist', 'Unknown'))
+            media.set_meta(vlc.Meta.Album, track.get('album', ''))
+            
+            # Set cover art if available
+            if 'cover' in track and track['cover']:
+                # VLC expects file:// URL for local files
+                cover_path = track['cover']
+                if not cover_path.startswith('http') and not cover_path.startswith('file://'):
+                    cover_path = f"file:///{cover_path.replace('\\', '/')}"
+                media.set_meta(vlc.Meta.ArtworkURL, cover_path)
+            
+            # Save metadata to media
+            media.save_meta()
+            
+            # Load media into player
+            self.player.set_media(media)
+            
+            # Wait for media to parse (needed for duration)
+            media.parse()
+            self.duration = media.get_duration()  # Already in milliseconds
             print(f"PlayerManager: Loaded track, duration: {self.duration}ms")
             
-            self.playback.play()
+            # Play the track
+            self.player.play()
             self.is_playing = True
             
             # Start position update thread
@@ -95,11 +132,24 @@ class PlayerManager:
                     listener(track)
                 except Exception as e:
                     print(f"Error in track change listener: {e}")
+            
+            # Update media notifications
+            if self.media_notifications:
+                self.media_notifications.update_metadata(track)
 
         except Exception as e:
             print(f"PlayerManager: Critical error loading track: {e}")
+            import traceback
+            traceback.print_exc()
             self.is_playing = False
             self._notify_state_change()
+
+    def _on_track_end(self, event):
+        """VLC event callback when track ends."""
+        print("PlayerManager: Track ended (VLC event)")
+        if not self._user_paused:
+            # Schedule next track on the page's thread
+            self.page.run_task(self._async_next_track)
 
     def _start_position_updates(self):
         """Start a background thread to update position."""
@@ -114,27 +164,25 @@ class PlayerManager:
             self._position_thread.join(timeout=0.5)
 
     def _position_update_loop(self):
-        """Background loop to update position and check for track completion."""
-        last_position = -1
-        stalled_count = 0
-        loop_count = 0
-        
+        """Background loop to update position."""
         while not self._stop_position_thread:
             try:
-                loop_count += 1
-                
-                # Skip everything if user paused
+                # Skip if user paused
                 if self._user_paused:
                     time.sleep(0.25)
                     continue
                 
-                # Check playback state
-                is_active = self.playback.active
-                is_playing = self.playback.playing if is_active else False
-                
-                # Update position if active
-                if is_active:
-                    self.position = int(self.playback.curr_pos * 1000)
+                # Get current position from VLC
+                if self.player.is_playing():
+                    current_pos = self.player.get_time()  # Returns milliseconds
+                    if current_pos != -1:
+                        self.position = current_pos
+                    
+                    # Update duration if not set yet
+                    if self.duration == 0:
+                        length = self.player.get_length()
+                        if length > 0:
+                            self.duration = length
                     
                     # Notify listeners
                     for listener in self.position_change_listeners:
@@ -142,42 +190,7 @@ class PlayerManager:
                             listener(self.position, self.duration)
                         except Exception:
                             pass
-                
-                # Debug log every ~5 seconds
-                if loop_count % 20 == 0:
-                    print(f"PlayerManager: pos={self.position}ms, dur={self.duration}ms, active={is_active}, playing={is_playing}, stalled={stalled_count}")
-                
-                # ===== TRACK COMPLETION DETECTION =====
-                # These checks are OUTSIDE of `if is_active` because playback may become inactive when done
-                
-                # Method 1: Playback stopped naturally (playing=False, not paused by user)
-                if not is_playing and self.position > 1000:
-                    print(f"PlayerManager: Track completed (not playing) - pos={self.position}, dur={self.duration}")
-                    self._stop_position_thread = True
-                    self.page.run_task(self._async_next_track)
-                    break
-                
-                # Method 2: Position >= duration
-                if self.duration > 0 and self.position >= self.duration:
-                    print(f"PlayerManager: Track completed (pos >= dur) - pos={self.position}, dur={self.duration}")
-                    self._stop_position_thread = True
-                    self.page.run_task(self._async_next_track)
-                    break
-                
-                # Method 3: Position stalled when past 90%
-                if self.position == last_position:
-                    stalled_count += 1
-                else:
-                    stalled_count = 0
-                
-                if stalled_count >= 4 and self.duration > 0 and self.position > (self.duration * 0.9):
-                    print(f"PlayerManager: Track completed (stalled) - pos={self.position}, dur={self.duration}")
-                    self._stop_position_thread = True
-                    self.page.run_task(self._async_next_track)
-                    break
-                
-                last_position = self.position
-                        
+                            
             except Exception as e:
                 print(f"Position update error: {e}")
             
@@ -188,16 +201,16 @@ class PlayerManager:
         self.next_track()
 
     def toggle_play_pause(self):
-        if not self.playback.active:
+        if not self.player.get_media():
             return
 
         if self.is_playing:
             self._user_paused = True  # Mark as user-initiated pause
-            self.playback.pause()
+            self.player.pause()
             self.is_playing = False
         else:
             self._user_paused = False  # Resume, clear the pause flag
-            self.playback.resume()
+            self.player.play()
             self.is_playing = True
         
         self._notify_state_change()
@@ -217,8 +230,8 @@ class PlayerManager:
                     self.current_index = len(self.playlist) - 1
                     # Stop at end of playlist
                     self._stop_position_updates()
-                    if self.playback.active:
-                        self.playback.stop()
+                    if self.player.is_playing():
+                        self.player.stop()
                     self.is_playing = False
                     self._notify_state_change()
                     return
@@ -231,7 +244,7 @@ class PlayerManager:
 
         # If played more than 3 seconds, restart track
         if self.position > 3000:
-            self.playback.seek(0)
+            self.player.set_time(0)
             self.position = 0
             return
 
@@ -242,18 +255,22 @@ class PlayerManager:
         self.load_current_track()
 
     def seek(self, position_ms):
-        if self.playback.active:
+        if self.player.get_media():
             try:
-                # just_playback uses seconds
-                self.playback.seek(position_ms / 1000)
+                # VLC uses milliseconds
+                self.player.set_time(int(position_ms))
                 self.position = position_ms
             except Exception as e:
                 print(f"PlayerManager: Seek error: {e}")
 
     def set_volume(self, volume):
         """Set volume (0.0 to 1.0)."""
-        if self.playback.active:
-            self.playback.set_volume(volume)
+        try:
+            # VLC uses 0-100 scale
+            vlc_volume = int(volume * 100)
+            self.player.audio_set_volume(vlc_volume)
+        except Exception as e:
+            print(f"PlayerManager: Volume error: {e}")
 
     def toggle_shuffle(self):
         self.is_shuffle = not self.is_shuffle
@@ -269,10 +286,19 @@ class PlayerManager:
                 listener(self.is_playing)
             except Exception as e:
                 print(f"Error in state change listener: {e}")
+        
+        # Update media notifications
+        if self.media_notifications:
+            self.media_notifications.update_playback_state(self.is_playing)
+        
         self.page.update()
 
     def cleanup(self):
         """Clean up resources when the player is destroyed."""
         self._stop_position_updates()
-        if self.playback.active:
-            self.playback.stop()
+        if self.player.is_playing():
+            self.player.stop()
+        if self.media_notifications:
+            self.media_notifications.cleanup()
+        self.player.release()
+        self.vlc_instance.release()
