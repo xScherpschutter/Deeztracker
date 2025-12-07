@@ -25,10 +25,16 @@ async def main(page: ft.Page):
     page.bgcolor = theme.BG_COLOR
     page.window_width = 400
     page.window_height = 890  # 850 (original) + 40 (title bar)
-    page.window_resizable = False
+    page.window_resizable = True
+    page.window_min_width = 400
+    page.window_min_height = 600
     
-    # Hide native title bar and use custom one
-    page.window.title_bar_hidden = True
+    import platform
+    # Hide native title bar and use custom one, unless on Linux where we need it for resizing
+    if platform.system() == "Linux":
+        page.window.title_bar_hidden = False
+    else:
+        page.window.title_bar_hidden = True
 
     # Initialize PlayerManager
     player_manager = PlayerManager(page)

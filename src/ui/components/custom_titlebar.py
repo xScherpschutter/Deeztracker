@@ -110,6 +110,12 @@ class CustomTitleBar(ft.WindowDragArea):
             padding=ft.padding.only(right=5)
         )
         
+        import platform
+        if platform.system() == "Linux":
+             self.minimize_btn.visible = False
+             self.maximize_btn.visible = False
+             self.close_btn.visible = False
+
         super().__init__(content=titlebar_content, maximizable=True)
     
     def minimize_window(self, e):
