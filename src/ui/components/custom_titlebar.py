@@ -58,8 +58,8 @@ class CustomTitleBar(ft.WindowDragArea):
                         weight=ft.FontWeight.W_500,
                         color=theme.PRIMARY_TEXT
                     ),
-                    ft.Container(expand=True),  # Spacer
-                    # Navigation buttons
+                    ft.Container(width=15),  # Separator between branding and navigation
+                    # Navigation buttons (moved to left)
                     ft.IconButton(
                         icon=ft.Icons.SEARCH,
                         icon_size=20,
@@ -96,7 +96,7 @@ class CustomTitleBar(ft.WindowDragArea):
                             }
                         )
                     ),
-                    ft.Container(width=10),  # Separator
+                    ft.Container(expand=True),  # Spacer (moved to right of navigation)
                     self.minimize_btn,
                     self.maximize_btn,
                     self.close_btn,

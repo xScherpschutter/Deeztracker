@@ -47,6 +47,73 @@ class SearchView(ft.View):
             padding=10
         )
         
+        # Empty state for when no search has been performed
+        self.empty_state = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Icon(
+                        ft.Icons.SEARCH_ROUNDED,
+                        size=80,
+                        color=theme.SECONDARY_TEXT
+                    ),
+                    ft.Container(height=20),
+                    ft.Text(
+                        "Descubre tu música favorita",
+                        size=24,
+                        weight=ft.FontWeight.BOLD,
+                        color=theme.PRIMARY_TEXT,
+                        text_align=ft.TextAlign.CENTER
+                    ),
+                    ft.Container(height=10),
+                    ft.Text(
+                        "Busca artistas, álbumes, canciones o playlists",
+                        size=14,
+                        color=theme.SECONDARY_TEXT,
+                        text_align=ft.TextAlign.CENTER
+                    ),
+                    ft.Container(height=30),
+                    ft.Container(
+                        content=ft.Column(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.TIPS_AND_UPDATES, size=20, color=theme.ACCENT_COLOR),
+                                        ft.Text("Escribe en la barra superior", size=13, color=theme.SECONDARY_TEXT)
+                                    ],
+                                    spacing=10
+                                ),
+                                ft.Container(height=8),
+                                ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.TAB, size=20, color=theme.ACCENT_COLOR),
+                                        ft.Text("Selecciona el tipo de búsqueda", size=13, color=theme.SECONDARY_TEXT)
+                                    ],
+                                    spacing=10
+                                ),
+                                ft.Container(height=8),
+                                ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.DOWNLOAD, size=20, color=theme.ACCENT_COLOR),
+                                        ft.Text("Descarga tus canciones favoritas", size=13, color=theme.SECONDARY_TEXT)
+                                    ],
+                                    spacing=10
+                                ),
+                            ],
+                            spacing=0
+                        ),
+                        padding=20,
+                        border_radius=10,
+                        bgcolor=ft.Colors.with_opacity(0.05, theme.ACCENT_COLOR)
+                    )
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER
+            ),
+            alignment=ft.alignment.center,
+            expand=True,
+            visible=True  # Initially visible
+        )
+        
         self.search_tabs = ft.Tabs(
             selected_index=0,
             on_change=self.tab_changed,
@@ -66,6 +133,7 @@ class SearchView(ft.View):
                 ft.Stack(
                     [
                         self.results_column,
+                        self.empty_state,
                         self.progress_container
                     ],
                     expand=True
@@ -98,6 +166,8 @@ class SearchView(ft.View):
         if not query:
             return
 
+        # Hide empty state and show loading
+        self.empty_state.visible = False
         self.results_column.controls.clear()
         self.results_column.controls.append(ft.Text("Buscando...", color=theme.SECONDARY_TEXT))
         self.progress_container.visible = True
