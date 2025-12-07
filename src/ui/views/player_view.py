@@ -7,6 +7,7 @@ class PlayerView(ft.View):
         super().__init__(route="/player", bgcolor=theme.BG_COLOR, padding=20)
         self.app_state = app_state
         self.player_manager = app_state["player_manager"]
+        self.user_seeking = False  # Flag to prevent position updates while seeking
         
         # UI Elements
         self.cover_image = ft.Container(
@@ -40,7 +41,9 @@ class PlayerView(ft.View):
         
         self.position_slider = ft.Slider(
             min=0, max=100,
-            on_change_end=self.seek_audio,
+            on_change_start=self.on_seek_start,
+            on_change=self.on_seek_change,
+            on_change_end=self.on_seek_end,
             active_color=theme.ACCENT_COLOR
         )
         
@@ -183,6 +186,10 @@ class PlayerView(ft.View):
         self.update()
 
     def update_position(self, position, duration):
+        # Don't update slider if user is currently seeking
+        if self.user_seeking:
+            return
+            
         if duration > 0:
             self.position_slider.max = duration
             self.position_slider.value = position
@@ -201,7 +208,20 @@ class PlayerView(ft.View):
             self.volume_icon.name = ft.Icons.VOLUME_UP
         self.update()
 
-    def seek_audio(self, e):
+    def on_seek_start(self, e):
+        """Called when user starts dragging the slider"""
+        self.user_seeking = True
+    
+    def on_seek_change(self, e):
+        """Called continuously while user drags the slider"""
+        # Update the time display immediately for visual feedback
+        if self.position_slider.max > 0:
+            self.position_text.value = self.format_time(int(e.control.value))
+            self.position_text.update()
+    
+    def on_seek_end(self, e):
+        """Called when user releases the slider"""
+        self.user_seeking = False
         self.player_manager.seek(int(e.control.value))
 
     def toggle_shuffle(self, e):

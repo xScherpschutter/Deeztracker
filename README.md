@@ -49,13 +49,5 @@ The build process will copy the necessary VLC libraries and plugins into the pac
 #### Build Command
 
 ```powershell
-uv run flet pack src/main.py `
-  -i assets/icon_windows.png `
-  --name "Deeztracker" `
-  --product-name "Deeztracker" `
-  --file-version "0.0.1" `
-  --add-binary "C:\Program Files\VideoLAN\VLC\libvlc.dll;." `
-  --add-binary "C:\Program Files\VideoLAN\VLC\libvlccore.dll;." `
-  --add-data "C:\Program Files\VideoLAN\VLC\plugins;plugins" `
-  -y
+uv run flet pack src/main.py -i assets/icon_windows.png --name "Deeztracker" --product-name "Deeztracker" --file-version "0.0.0.1" --add-binary "C:\Program Files\VideoLAN\VLC\libvlc.dll;." --add-binary "C:\Program Files\VideoLAN\VLC\libvlccore.dll;." --add-data "C:\Program Files\VideoLAN\VLC\plugins;plugins" -n "Deeztracker" -y
 ```

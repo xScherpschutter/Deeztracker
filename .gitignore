@@ -9,5 +9,6 @@ temp_audio/
 storage/
 music_downloads/
 *.spec
+*.ico
 # Virtual environments
 .venv
