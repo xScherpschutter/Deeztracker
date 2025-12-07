@@ -6,6 +6,7 @@ from features.downloader.utils import get_custom_music_folder
 # Importar vistas
 from ui.views import login_view, search_view, artist_view, album_view, playlist_view, settings_view, local_view, player_view
 from ui.components import appbar
+from ui.components.custom_titlebar import CustomTitleBar
 from ui import theme
 from features.player.player_manager import PlayerManager
 
@@ -23,12 +24,22 @@ async def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
     page.bgcolor = theme.BG_COLOR
     page.window_width = 400
-    page.window_height = 850
+    page.window_height = 890  # 850 (original) + 40 (title bar)
     page.window_resizable = False
+    
+    # Hide native title bar and use custom one
+    page.window.title_bar_hidden = True
 
     # Initialize PlayerManager
     player_manager = PlayerManager(page)
     APP_STATE["player_manager"] = player_manager
+
+    # Initialize Custom Title Bar
+    custom_titlebar = CustomTitleBar(page)
+    custom_titlebar.top = 0
+    custom_titlebar.left = 0
+    custom_titlebar.right = 0
+    page.overlay.append(custom_titlebar)
 
     # Initialize MiniPlayer
     from ui.components.mini_player import MiniPlayer
@@ -66,53 +77,53 @@ async def main(page: ft.Page):
         # Vista de Login (ruta inicial si no hay ARL)
         if page.route == "/login" or not APP_STATE.get("arl"):
             view = login_view.LoginView(APP_STATE)
-            # La vista de login no tiene AppBar
+            view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
             page.views.append(view)        
         # Vistas principales de la app
         else:
             if page.route == "/search":
                 view = search_view.SearchView(APP_STATE)
-                view.appbar = appbar.CustomAppBar(title="Buscar", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
             
             elif page.route.startswith("/artist"):
                 artist_id = page.route.split("/")[-1]
                 view = artist_view.ArtistView(APP_STATE, artist_id)
-                view.appbar = appbar.CustomAppBar(title="Artista", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
 
             elif page.route.startswith("/album"):
                 album_id = page.route.split("/")[-1]
                 view = album_view.AlbumView(APP_STATE, album_id)
-                view.appbar = appbar.CustomAppBar(title="Álbum", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
             
             elif page.route.startswith("/playlist"):
                 playlist_id = page.route.split("/")[-1]
                 view = playlist_view.PlaylistView(APP_STATE, playlist_id)
-                view.appbar = appbar.CustomAppBar(title="Playlist", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
 
             elif page.route == "/settings":
                 view = settings_view.SettingsView(APP_STATE)
-                view.appbar = appbar.CustomAppBar(title="Configuración", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
 
             elif page.route == "/local":
                 view = local_view.LocalView(APP_STATE)
-                view.appbar = appbar.CustomAppBar(title="Música Local", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
 
             elif page.route == "/player":
                 view = player_view.PlayerView(APP_STATE)
-                view.appbar = appbar.CustomAppBar(title="Reproductor", page=page)
+                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                 page.views.append(view)
 
             # Añadir una ruta de fallback o una página 404
             else:
                  if not page.views:
                     view = search_view.SearchView(APP_STATE)
-                    view.appbar = appbar.CustomAppBar(title="Buscar", page=page)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
                     page.views.append(view)
         
         page.update()
