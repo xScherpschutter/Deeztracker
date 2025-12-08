@@ -158,31 +158,81 @@ async def main(page: ft.Page):
         if not APP_STATE["player_manager"]:
             return
 
-        if e.key == "ArrowUp" or e.key == "AudioVolumeUp":
-            current_vol = APP_STATE["player_manager"].volume
-            new_vol = min(1.0, current_vol + 0.05)
-            APP_STATE["player_manager"].set_volume(new_vol)
-        elif e.key == "ArrowDown" or e.key == "AudioVolumeDown":
-            current_vol = APP_STATE["player_manager"].volume
-            new_vol = max(0.0, current_vol - 0.05)
-            APP_STATE["player_manager"].set_volume(new_vol)
+        # Check if user is typing in a text field - if so, ignore keyboard shortcuts
+        # (except for media keys which should always work)
+        is_typing = False
+        try:
+            # Check if there's a focused control that's a TextField
+            if page.views and len(page.views) > 0:
+                current_view = page.views[-1]
+                # Recursively check for focused TextFields
+                def check_focused_textfield(control):
+                    if isinstance(control, ft.TextField):
+                        # TextField is considered focused if it has autofocus or if it's the active element
+                        return True
+                    if hasattr(control, 'controls'):
+                        for child in control.controls:
+                            if check_focused_textfield(child):
+                                return True
+                    if hasattr(control, 'content') and control.content:
+                        if check_focused_textfield(control.content):
+                            return True
+                    return False
+                
+                # For simplicity, we'll check if the current route is /search
+                # and if certain keys are pressed, we assume user might be typing
+                if page.route == "/search" and e.key == " ":
+                    # Spacebar in search view - likely typing
+                    is_typing = True
+        except:
+            pass
+
+        # Media keys should always work, even when typing
+        if e.key == "MediaPlayPause":
+            APP_STATE["player_manager"].toggle_play_pause()
+            return
+        elif e.key == "MediaTrackNext":
+            APP_STATE["player_manager"].next_track()
+            return
+        elif e.key == "MediaTrackPrevious":
+            APP_STATE["player_manager"].prev_track()
+            return
         elif e.key == "AudioVolumeMute":
             # Simple mute toggle: if > 0 set to 0, else set to 0.5 (or previous if we tracked it)
             if APP_STATE["player_manager"].volume > 0:
                 APP_STATE["player_manager"].set_volume(0)
             else:
                 APP_STATE["player_manager"].set_volume(0.5) # Default un-mute volume
+            return
+        elif e.key == "AudioVolumeUp":
+            current_vol = APP_STATE["player_manager"].volume
+            new_vol = min(1.0, current_vol + 0.05)
+            APP_STATE["player_manager"].set_volume(new_vol)
+            return
+        elif e.key == "AudioVolumeDown":
+            current_vol = APP_STATE["player_manager"].volume
+            new_vol = max(0.0, current_vol - 0.05)
+            APP_STATE["player_manager"].set_volume(new_vol)
+            return
+
+        # If user is typing, ignore regular keyboard shortcuts
+        if is_typing:
+            return
+
+        # Regular keyboard shortcuts
+        if e.key == "ArrowUp":
+            current_vol = APP_STATE["player_manager"].volume
+            new_vol = min(1.0, current_vol + 0.05)
+            APP_STATE["player_manager"].set_volume(new_vol)
+        elif e.key == "ArrowDown":
+            current_vol = APP_STATE["player_manager"].volume
+            new_vol = max(0.0, current_vol - 0.05)
+            APP_STATE["player_manager"].set_volume(new_vol)
         elif e.key == " ":  # Spacebar
             APP_STATE["player_manager"].toggle_play_pause()
         elif e.key == "ArrowRight":  # Next track
             APP_STATE["player_manager"].next_track()
         elif e.key == "ArrowLeft":  # Previous track
-            APP_STATE["player_manager"].prev_track()
-        elif e.key == "MediaPlayPause":
-            APP_STATE["player_manager"].toggle_play_pause()
-        elif e.key == "MediaTrackNext":
-            APP_STATE["player_manager"].next_track()
-        elif e.key == "MediaTrackPrevious":
             APP_STATE["player_manager"].prev_track()
 
     page.on_keyboard_event = on_keyboard
