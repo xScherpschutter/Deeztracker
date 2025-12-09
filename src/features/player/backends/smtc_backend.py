@@ -101,18 +101,30 @@ class SMTCBackend:
                             try:
                                 from winsdk.windows.storage import StorageFile
                                 
+                                # Define async wrapper for WinRT IAsyncOperation
                                 async def get_storage_file():
                                     return await StorageFile.get_file_from_path_async(str(file_path))
                                 
+                                # Try to use StorageFile with proper async handling
                                 try:
-                                    loop = asyncio.get_running_loop()
-                                    storage_file = loop.run_until_complete(get_storage_file())
-                                except RuntimeError:
-                                    storage_file = asyncio.run(get_storage_file())
-                                
-                                stream_ref = RandomAccessStreamReference.create_from_file(storage_file)
-                                updater.thumbnail = stream_ref
-                                print(f"Thumbnail set: {track.get('title', 'Unknown')}")
+                                    # Check if there's a running event loop
+                                    try:
+                                        loop = asyncio.get_running_loop()
+                                        # Use run_coroutine_threadsafe with the async wrapper
+                                        storage_file = asyncio.run_coroutine_threadsafe(
+                                            get_storage_file(),
+                                            loop
+                                        ).result(timeout=2)
+                                    except RuntimeError:
+                                        # No running loop, create a new one
+                                        storage_file = asyncio.run(get_storage_file())
+                                    
+                                    stream_ref = RandomAccessStreamReference.create_from_file(storage_file)
+                                    updater.thumbnail = stream_ref
+                                    print(f"Thumbnail set: {track.get('title', 'Unknown')}")
+                                except Exception as async_error:
+                                    print(f"StorageFile async error: {async_error}, falling back to URI")
+                                    raise  # Re-raise to trigger URI fallback
                                 
                             except Exception as storage_error:
                                 from urllib.parse import quote
