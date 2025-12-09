@@ -16,6 +16,7 @@ APP_STATE = {
     "api": None,
     "downloader": None,
     "player_manager": None,
+    "search_field_focused": False,  # Track if user is typing in a search field
 }
 
 async def main(page: ft.Page):
@@ -160,32 +161,8 @@ async def main(page: ft.Page):
 
         # Check if user is typing in a text field - if so, ignore keyboard shortcuts
         # (except for media keys which should always work)
-        is_typing = False
-        try:
-            # Check if there's a focused control that's a TextField
-            if page.views and len(page.views) > 0:
-                current_view = page.views[-1]
-                # Recursively check for focused TextFields
-                def check_focused_textfield(control):
-                    if isinstance(control, ft.TextField):
-                        # TextField is considered focused if it has autofocus or if it's the active element
-                        return True
-                    if hasattr(control, 'controls'):
-                        for child in control.controls:
-                            if check_focused_textfield(child):
-                                return True
-                    if hasattr(control, 'content') and control.content:
-                        if check_focused_textfield(control.content):
-                            return True
-                    return False
-                
-                # For simplicity, we'll check if the current route is /search
-                # and if certain keys are pressed, we assume user might be typing
-                if page.route == "/search" and e.key == " ":
-                    # Spacebar in search view - likely typing
-                    is_typing = True
-        except:
-            pass
+        # Search fields set APP_STATE["search_field_focused"] via on_focus/on_blur events
+        is_typing = APP_STATE.get("search_field_focused", False)
 
         # Media keys should always work, even when typing
         if e.key == "MediaPlayPause":

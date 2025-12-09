@@ -60,6 +60,8 @@ class LocalView(ft.View):
             on_change=self.filter_tracks,
             border_color=theme.ACCENT_COLOR,
             text_style=ft.TextStyle(color=theme.PRIMARY_TEXT),
+            on_focus=lambda e: self.app_state.__setitem__("search_field_focused", True),
+            on_blur=lambda e: self.app_state.__setitem__("search_field_focused", False)
         )
 
         # OS Info display
@@ -219,7 +221,7 @@ class LocalView(ft.View):
                     )
                 )
         
-        self.update()
+        self.tracks_column.update()
 
     def get_metadata(self, file_path):
         """Extract metadata and cover art from audio file. Cover is cached to temp file."""

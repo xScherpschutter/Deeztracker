@@ -17,6 +17,8 @@ class SearchView(ft.View):
             border_radius=10,
             border_color=theme.ACCENT_COLOR,
             autofocus=True,
+            on_focus=lambda e: self.app_state.__setitem__("search_field_focused", True),
+            on_blur=lambda e: self.app_state.__setitem__("search_field_focused", False)
         )
 
         self.snackbar = ft.SnackBar(content=ft.Text(""))
