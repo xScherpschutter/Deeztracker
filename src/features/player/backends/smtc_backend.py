@@ -100,24 +100,22 @@ class SMTCBackend:
                         if file_path.exists():
                             try:
                                 from winsdk.windows.storage import StorageFile
+                                import concurrent.futures
                                 
                                 # Define async wrapper for WinRT IAsyncOperation
                                 async def get_storage_file():
                                     return await StorageFile.get_file_from_path_async(str(file_path))
                                 
-                                # Try to use StorageFile with proper async handling
+                                # Use a thread pool to run the async operation
+                                # This is more reliable than trying to detect the event loop
+                                def run_async_in_thread():
+                                    return asyncio.run(get_storage_file())
+                                
                                 try:
-                                    # Check if there's a running event loop
-                                    try:
-                                        loop = asyncio.get_running_loop()
-                                        # Use run_coroutine_threadsafe with the async wrapper
-                                        storage_file = asyncio.run_coroutine_threadsafe(
-                                            get_storage_file(),
-                                            loop
-                                        ).result(timeout=2)
-                                    except RuntimeError:
-                                        # No running loop, create a new one
-                                        storage_file = asyncio.run(get_storage_file())
+                                    # Run in a separate thread to avoid event loop conflicts
+                                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                                        future = executor.submit(run_async_in_thread)
+                                        storage_file = future.result(timeout=3)
                                     
                                     stream_ref = RandomAccessStreamReference.create_from_file(storage_file)
                                     updater.thumbnail = stream_ref
