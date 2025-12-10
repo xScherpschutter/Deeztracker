@@ -45,13 +45,28 @@ class CustomTitleBar(ft.WindowDragArea):
             )
         )
         
+        # Back button (hidden by default, shown when navigation stack has previous views)
+        self.back_btn = ft.IconButton(
+            icon=ft.Icons.ARROW_BACK,
+            icon_size=20,
+            icon_color=theme.SECONDARY_TEXT,
+            tooltip="Atrás",
+            on_click=self.go_back,
+            visible=False,  # Hidden by default
+            style=ft.ButtonStyle(
+                overlay_color={
+                    ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
+                }
+            )
+        )
+        
         # Navigation buttons (hidden by default until user logs in)
         self.search_btn = ft.IconButton(
             icon=ft.Icons.SEARCH,
             icon_size=20,
             icon_color=theme.ACCENT_COLOR if page.route == "/search" else theme.SECONDARY_TEXT,
             tooltip="Buscar",
-            on_click=lambda _: page.go("/search"),
+            on_click=lambda _: self.smart_navigate("/search"),
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(
                 overlay_color={
@@ -65,7 +80,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon_size=20,
             icon_color=theme.ACCENT_COLOR if page.route == "/local" else theme.SECONDARY_TEXT,
             tooltip="Música Local",
-            on_click=lambda _: page.go("/local"),
+            on_click=lambda _: self.smart_navigate("/local"),
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(
                 overlay_color={
@@ -79,7 +94,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon_size=20,
             icon_color=theme.ACCENT_COLOR if page.route == "/settings" else theme.SECONDARY_TEXT,
             tooltip="Configuración",
-            on_click=lambda _: page.go("/settings"),
+            on_click=lambda _: self.smart_navigate("/settings"),
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(
                 overlay_color={
@@ -102,6 +117,8 @@ class CustomTitleBar(ft.WindowDragArea):
                         color=theme.PRIMARY_TEXT
                     ),
                     ft.Container(width=15),  # Separator between branding and navigation
+                    # Back button (appears when there are previous views)
+                    self.back_btn,
                     # Navigation buttons
                     self.search_btn,
                     self.local_btn,
@@ -152,3 +169,41 @@ class CustomTitleBar(ft.WindowDragArea):
         self.search_btn.visible = visible
         self.local_btn.visible = visible
         self.settings_btn.visible = visible
+    
+    def smart_navigate(self, target_route: str):
+        """Navigate to a route, backtracking if it exists in the stack"""
+        # Check if the target route exists in the current stack
+        for i, view in enumerate(self.page.views):
+            if view.route == target_route:
+                # Found the route in the stack, pop everything after it
+                while len(self.page.views) > i + 1:
+                    self.page.views.pop()
+                # Update route and refresh
+                self.page.route = target_route
+                self.page.update()
+                self.update_back_button()
+                return
+        
+        # Route not in stack, navigate normally (will add to stack)
+        self.page.go(target_route)
+    
+    def go_back(self, e):
+        """Navigate to the previous view"""
+        if len(self.page.views) > 1:
+            self.page.views.pop()
+            top_view = self.page.views[-1]
+            # Update the route without triggering route_change
+            self.page.route = top_view.route
+            self.page.update()
+            # Update back button visibility
+            self.update_back_button()
+    
+    def update_back_button(self):
+        """Show or hide back button based on navigation stack"""
+        # Show back button if there are previous views to go back to
+        should_show = len(self.page.views) > 1
+        self.back_btn.visible = should_show
+        try:
+            self.page.update()
+        except:
+            pass  # Ignore if page is not ready yet

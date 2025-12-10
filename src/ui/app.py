@@ -83,66 +83,79 @@ async def main(page: ft.Page):
     
     async def route_change(route):
         """Manejador de cambio de ruta para la navegación."""
-        print(f"Cambiando a la ruta: {page.route}")
-        page.views.clear()
+        # print(f"DEBUG: route_change called. page.route={page.route}, views_count={len(page.views)}")
+        # if page.views:
+        #     print(f"DEBUG: Current views in stack: {[v.route for v in page.views]}")
+        
+        # Remove any views with None route (Flet creates these automatically sometimes)
+        while page.views and page.views[0].route is None:
+            page.views.pop(0)
 
         # Vista de Login (ruta inicial si no hay ARL)
         if page.route == "/login" or not APP_STATE.get("arl"):
+            # Clear views when going to login to reset navigation stack
+            page.views.clear()
             # Hide navigation buttons on login screen
             if APP_STATE.get("titlebar"):
                 APP_STATE["titlebar"].set_navigation_visible(False)
             view = login_view.LoginView(APP_STATE)
             view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-            page.views.append(view)        
+            page.views.append(view)
         # Vistas principales de la app
         else:
             # Show navigation buttons when logged in
             if APP_STATE.get("titlebar"):
                 APP_STATE["titlebar"].set_navigation_visible(True)
             
-            if page.route == "/search":
-                view = search_view.SearchView(APP_STATE)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
+            # If the previous view was login, clear the stack to prevent going back to login
+            if page.views and page.views[-1].route == "/login":
+                page.views.clear()
             
-            elif page.route.startswith("/artist"):
-                artist_id = page.route.split("/")[-1]
-                view = artist_view.ArtistView(APP_STATE, artist_id)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
-
-            elif page.route.startswith("/album"):
-                album_id = page.route.split("/")[-1]
-                view = album_view.AlbumView(APP_STATE, album_id)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
-            
-            elif page.route.startswith("/playlist"):
-                playlist_id = page.route.split("/")[-1]
-                view = playlist_view.PlaylistView(APP_STATE, playlist_id)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
-
-            elif page.route == "/settings":
-                view = settings_view.SettingsView(APP_STATE)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
-
-            elif page.route == "/local":
-                view = local_view.LocalView(APP_STATE)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
-
-            elif page.route == "/player":
-                view = player_view.PlayerView(APP_STATE)
-                view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
-                page.views.append(view)
-
-            # Añadir una ruta de fallback o una página 404
+            # Check if we're already on this route (e.g., back button was used)
+            # If so, don't add a new view
+            if page.views and page.views[-1].route == page.route:
+                pass  # Already on this route, don't add new view
             else:
-                 if not page.views:
+                # We're navigating to a new route, create and add the view
+                view = None
+                if page.route == "/search":
                     view = search_view.SearchView(APP_STATE)
                     view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+                
+                elif page.route.startswith("/artist"):
+                    artist_id = page.route.split("/")[-1]
+                    view = artist_view.ArtistView(APP_STATE, artist_id)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+
+                elif page.route.startswith("/album"):
+                    album_id = page.route.split("/")[-1]
+                    view = album_view.AlbumView(APP_STATE, album_id)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+                
+                elif page.route.startswith("/playlist"):
+                    playlist_id = page.route.split("/")[-1]
+                    view = playlist_view.PlaylistView(APP_STATE, playlist_id)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+
+                elif page.route == "/settings":
+                    view = settings_view.SettingsView(APP_STATE)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+
+                elif page.route == "/local":
+                    view = local_view.LocalView(APP_STATE)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+
+                elif page.route == "/player":
+                    view = player_view.PlayerView(APP_STATE)
+                    view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+
+                # Añadir una ruta de fallback o una página 404
+                else:
+                    if not page.views:
+                        view = search_view.SearchView(APP_STATE)
+                        view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
+                
+                if view:
                     page.views.append(view)
         
         page.update()
@@ -157,6 +170,10 @@ async def main(page: ft.Page):
                         control.visible = True
                     control.update()
                     break
+        
+        # Update back button visibility based on navigation stack
+        if APP_STATE.get("titlebar"):
+            APP_STATE["titlebar"].update_back_button()
 
     async def view_pop(view):
         """Manejador para el botón de 'atrás'."""
