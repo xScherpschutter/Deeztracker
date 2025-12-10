@@ -17,6 +17,7 @@ APP_STATE = {
     "downloader": None,
     "player_manager": None,
     "search_field_focused": False,  # Track if user is typing in a search field
+    "titlebar": None,  # Reference to custom titlebar for controlling navigation visibility
 }
 
 async def main(page: ft.Page):
@@ -46,6 +47,7 @@ async def main(page: ft.Page):
     custom_titlebar.top = 0
     custom_titlebar.left = 0
     custom_titlebar.right = 0
+    APP_STATE["titlebar"] = custom_titlebar  # Store reference for controlling navigation
     page.overlay.append(custom_titlebar)
 
     # Initialize MiniPlayer
@@ -68,12 +70,15 @@ async def main(page: ft.Page):
             APP_STATE["arl"] = arl_token
             APP_STATE["api"] = DeezerAPIService()
             APP_STATE["downloader"] = downloader
+            custom_titlebar.set_navigation_visible(True)  # Show navigation when logged in
             initial_route = "/search"
         except Exception as e:
             print(f"Error al inicializar servicios con ARL guardado: {e}")
             await page.client_storage.remove_async("arl_token") # Eliminar token inválido
+            custom_titlebar.set_navigation_visible(False)  # Hide navigation on login error
             initial_route = "/login"
     else:
+        custom_titlebar.set_navigation_visible(False)  # Hide navigation on login screen
         initial_route = "/login"
     
     async def route_change(route):
@@ -83,11 +88,18 @@ async def main(page: ft.Page):
 
         # Vista de Login (ruta inicial si no hay ARL)
         if page.route == "/login" or not APP_STATE.get("arl"):
+            # Hide navigation buttons on login screen
+            if APP_STATE.get("titlebar"):
+                APP_STATE["titlebar"].set_navigation_visible(False)
             view = login_view.LoginView(APP_STATE)
             view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
             page.views.append(view)        
         # Vistas principales de la app
         else:
+            # Show navigation buttons when logged in
+            if APP_STATE.get("titlebar"):
+                APP_STATE["titlebar"].set_navigation_visible(True)
+            
             if page.route == "/search":
                 view = search_view.SearchView(APP_STATE)
                 view.padding = ft.padding.only(top=40)  # Add padding for custom title bar

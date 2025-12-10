@@ -163,8 +163,8 @@ class SettingsView(ft.View):
         if "player_manager" in self.app_state and self.app_state["player_manager"]:
             player_manager = self.app_state["player_manager"]
             player_manager._stop_position_updates()
-            if player_manager.playback.active:
-                player_manager.playback.stop()
+            if player_manager.player and player_manager.player.is_playing():
+                player_manager.player.stop()
             player_manager.is_playing = False
             player_manager.playlist = []
             player_manager.current_index = -1
@@ -182,4 +182,9 @@ class SettingsView(ft.View):
         self.app_state["arl"] = None
         self.app_state["api"] = None
         self.app_state["downloader"] = None
+        
+        # Hide navigation buttons
+        if self.app_state.get("titlebar"):
+            self.app_state["titlebar"].set_navigation_visible(False)
+        
         self.page.go("/login")

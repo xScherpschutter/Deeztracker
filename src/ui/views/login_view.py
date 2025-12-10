@@ -78,6 +78,10 @@ class LoginView(ft.View):
             # Guardar ARL en client_storage para persistencia
             await self.page.client_storage.set_async("arl_token", arl_token)
             
+            # Show navigation buttons after successful login
+            if self.app_state.get("titlebar"):
+                self.app_state["titlebar"].set_navigation_visible(True)
+            
             self.page.go("/search")
 
         except Exception as ex:

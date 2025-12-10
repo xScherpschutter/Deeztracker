@@ -45,6 +45,49 @@ class CustomTitleBar(ft.WindowDragArea):
             )
         )
         
+        # Navigation buttons (hidden by default until user logs in)
+        self.search_btn = ft.IconButton(
+            icon=ft.Icons.SEARCH,
+            icon_size=20,
+            icon_color=theme.ACCENT_COLOR if page.route == "/search" else theme.SECONDARY_TEXT,
+            tooltip="Buscar",
+            on_click=lambda _: page.go("/search"),
+            visible=False,  # Hidden by default
+            style=ft.ButtonStyle(
+                overlay_color={
+                    ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
+                }
+            )
+        )
+        
+        self.local_btn = ft.IconButton(
+            icon=ft.Icons.LIBRARY_MUSIC,
+            icon_size=20,
+            icon_color=theme.ACCENT_COLOR if page.route == "/local" else theme.SECONDARY_TEXT,
+            tooltip="Música Local",
+            on_click=lambda _: page.go("/local"),
+            visible=False,  # Hidden by default
+            style=ft.ButtonStyle(
+                overlay_color={
+                    ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
+                }
+            )
+        )
+        
+        self.settings_btn = ft.IconButton(
+            icon=ft.Icons.SETTINGS,
+            icon_size=20,
+            icon_color=theme.ACCENT_COLOR if page.route == "/settings" else theme.SECONDARY_TEXT,
+            tooltip="Configuración",
+            on_click=lambda _: page.go("/settings"),
+            visible=False,  # Hidden by default
+            style=ft.ButtonStyle(
+                overlay_color={
+                    ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
+                }
+            )
+        )
+        
         # Title bar content
         titlebar_content = ft.Container(
             content=ft.Row(
@@ -59,43 +102,10 @@ class CustomTitleBar(ft.WindowDragArea):
                         color=theme.PRIMARY_TEXT
                     ),
                     ft.Container(width=15),  # Separator between branding and navigation
-                    # Navigation buttons (moved to left)
-                    ft.IconButton(
-                        icon=ft.Icons.SEARCH,
-                        icon_size=20,
-                        icon_color=theme.ACCENT_COLOR if page.route == "/search" else theme.SECONDARY_TEXT,
-                        tooltip="Buscar",
-                        on_click=lambda _: page.go("/search"),
-                        style=ft.ButtonStyle(
-                            overlay_color={
-                                ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
-                            }
-                        )
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.LIBRARY_MUSIC,
-                        icon_size=20,
-                        icon_color=theme.ACCENT_COLOR if page.route == "/local" else theme.SECONDARY_TEXT,
-                        tooltip="Música Local",
-                        on_click=lambda _: page.go("/local"),
-                        style=ft.ButtonStyle(
-                            overlay_color={
-                                ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
-                            }
-                        )
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.SETTINGS,
-                        icon_size=20,
-                        icon_color=theme.ACCENT_COLOR if page.route == "/settings" else theme.SECONDARY_TEXT,
-                        tooltip="Configuración",
-                        on_click=lambda _: page.go("/settings"),
-                        style=ft.ButtonStyle(
-                            overlay_color={
-                                ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, theme.ACCENT_COLOR)
-                            }
-                        )
-                    ),
+                    # Navigation buttons
+                    self.search_btn,
+                    self.local_btn,
+                    self.settings_btn,
                     ft.Container(expand=True),  # Spacer (moved to right of navigation)
                     self.minimize_btn,
                     self.maximize_btn,
@@ -136,3 +146,9 @@ class CustomTitleBar(ft.WindowDragArea):
     def close_window(self, e):
         """Close the application"""
         self.page.window.close()
+    
+    def set_navigation_visible(self, visible: bool):
+        """Show or hide navigation buttons based on authentication state"""
+        self.search_btn.visible = visible
+        self.local_btn.visible = visible
+        self.settings_btn.visible = visible
