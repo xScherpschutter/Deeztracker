@@ -3,7 +3,7 @@ from ui import theme
 
 def CustomAppBar(title: str, page: ft.Page):
     """
-    Crea una AppBar personalizada. Flet manejará automáticamente el botón de 'atrás'.
+    Creates a custom AppBar. Flet will automatically handle the 'back' button.
     """
     return ft.AppBar(
         title=ft.Text(title, size=20, weight=ft.FontWeight.BOLD),

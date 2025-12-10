@@ -78,7 +78,7 @@ class PlaylistView(ft.View):
             )
 
             if not playlist_info:
-                 raise Exception("Playlist no encontrada")
+                 raise Exception("Playlist not found")
 
             self.playlist_data = playlist_info
 
@@ -99,8 +99,8 @@ class PlaylistView(ft.View):
             self.progress_container.visible = False
             self.content_column.visible = True
         except Exception as e:
-            print(f"Error cargando playlist: {e}")
-            self.progress_container.content = ft.Text("Error al cargar datos de la playlist.", color=theme.ERROR_COLOR)
+            print(f"Error loading playlist: {e}")
+            self.progress_container.content = ft.Text("Error loading playlist data.", color=theme.ERROR_COLOR)
         
         self.update()
 
@@ -120,8 +120,8 @@ class PlaylistView(ft.View):
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             self.page.open(self.snackbar)
         except Exception as ex:
-            print(f"Error al descargar playlist {playlist_title}: {ex}")
-            self.snackbar.content = ft.Text(f"Error al descargar playlist '{playlist_title}': {ex}")
+            print(f"Error downloading playlist {playlist_title}: {ex}")
+            self.snackbar.content = ft.Text(f"Error downloading playlist '{playlist_title}': {ex}")
             self.snackbar.bgcolor = theme.ERROR_COLOR
             self.page.open(self.snackbar)
 
@@ -140,8 +140,8 @@ class PlaylistView(ft.View):
             page.open(self.snackbar)
             
         except Exception as e:
-            print(f"Error al descargar {item_title}: {e}")
-            self.snackbar.content = ft.Text(f"Error al descargar '{item_title}': {e}")
+            print(f"Error downloading {item_title}: {e}")
+            self.snackbar.content = ft.Text(f"Error downloading '{item_title}': {e}")
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self.snackbar)
     

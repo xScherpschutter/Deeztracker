@@ -11,7 +11,7 @@ class AlbumView(ft.View):
         self.api = app_state["api"]
         self.downloader = app_state["downloader"]
         self.album_id = album_id
-        self.album_data: AlbumResponse = None # Para almacenar datos del álbum
+        self.album_data: AlbumResponse = None 
         self.snackbar = ft.SnackBar(content=ft.Text(""))
 
         self.album_title = ft.Text("Cargando...", style=theme.title_style, size=22, text_align=ft.TextAlign.CENTER)
@@ -22,10 +22,8 @@ class AlbumView(ft.View):
         
         self.tracks_column = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
 
-        # Main content column, initially invisible
         self.content_column = ft.Column(
             [
-                # --- Non-scrolling part ---
                 ft.Column(
                     [
                         ft.Row([self.album_cover], alignment=ft.MainAxisAlignment.CENTER),
@@ -43,7 +41,6 @@ class AlbumView(ft.View):
                     spacing=15,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                # --- Scrolling part ---
                 ft.Stack(
                     [
                         self.tracks_column
@@ -81,7 +78,7 @@ class AlbumView(ft.View):
             )
 
             if not album_info:
-                 raise Exception("Álbum no encontrado")
+                 raise Exception("Album not found")
 
             self.album_data = album_info
 
@@ -102,8 +99,8 @@ class AlbumView(ft.View):
             self.progress_container.visible = False
             self.content_column.visible = True
         except Exception as e:
-            print(f"Error cargando álbum: {e}")
-            self.progress_container.content = ft.Text("Error al cargar datos del álbum.", color=theme.ERROR_COLOR)
+            print(f"Error loading album data: {e}")
+            self.progress_container.content = ft.Text("Error loading album data.", color=theme.ERROR_COLOR)
         
         self.update()
 
@@ -123,8 +120,8 @@ class AlbumView(ft.View):
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             self.page.open(self.snackbar)
         except Exception as ex:
-            print(f"Error al descargar álbum {album_title}: {ex}")
-            self.snackbar.content = ft.Text(f"Error al descargar álbum '{album_title}': {ex}")
+            print(f"Error downloading album {album_title}: {ex}")
+            self.snackbar.content = ft.Text(f"Error downloading album '{album_title}': {ex}")
             self.snackbar.bgcolor = theme.ERROR_COLOR
             self.page.open(self.snackbar)
 
@@ -144,8 +141,8 @@ class AlbumView(ft.View):
             page.open(self.snackbar)
             
         except Exception as e:
-            print(f"Error al descargar {item_title}: {e}")
-            self.snackbar.content = ft.Text(f"Error al descargar '{item_title}': {e}")
+            print(f"Error loading {item_title}: {e}")
+            self.snackbar.content = ft.Text(f"Error downloading '{item_title}': {e}")
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self.snackbar)
     

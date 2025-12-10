@@ -3,14 +3,14 @@ from features.api.service import DeezerAPIService
 from features.downloader.service import DeezloaderService
 from features.downloader.utils import get_custom_music_folder
 
-# Importar vistas
+# Views
 from ui.views import login_view, search_view, artist_view, album_view, playlist_view, settings_view, local_view, player_view
 from ui.components import appbar
 from ui.components.custom_titlebar import CustomTitleBar
 from ui import theme
 from features.player.player_manager import PlayerManager
 
-# Un diccionario simple para mantener el estado de la aplicación
+
 APP_STATE = {
     "arl": None,
     "api": None,
@@ -21,7 +21,7 @@ APP_STATE = {
 }
 
 async def main(page: ft.Page):
-    """Punto de entrada principal de la aplicación Flet."""
+    """Main entry point for the Flet application."""
     page.title = "Deeztracker"
     page.theme_mode = ft.ThemeMode.DARK
     page.bgcolor = theme.BG_COLOR
@@ -58,12 +58,12 @@ async def main(page: ft.Page):
     mini_player.right = 0
     page.overlay.append(mini_player)
 
-    # Intentar cargar ARL de client_storage
+    # Attempt to load ARL from client_storage
     arl_token = await page.client_storage.get_async("arl_token")
     custom_music_path = await page.client_storage.get_async("music_folder_path")
     
     if arl_token:
-        print("ARL token encontrado en storage. Inicializando servicios...")
+        print("ARL token found in storage. Initializing services...")
         try:
             output_dir = get_custom_music_folder(custom_music_path)
             downloader = DeezloaderService(arl=arl_token, output_dir=output_dir)
@@ -73,8 +73,8 @@ async def main(page: ft.Page):
             custom_titlebar.set_navigation_visible(True)  # Show navigation when logged in
             initial_route = "/search"
         except Exception as e:
-            print(f"Error al inicializar servicios con ARL guardado: {e}")
-            await page.client_storage.remove_async("arl_token") # Eliminar token inválido
+            print(f"Error initializing services with saved ARL: {e}")
+            await page.client_storage.remove_async("arl_token") # Remove invalid token
             custom_titlebar.set_navigation_visible(False)  # Hide navigation on login error
             initial_route = "/login"
     else:
@@ -82,7 +82,7 @@ async def main(page: ft.Page):
         initial_route = "/login"
     
     async def route_change(route):
-        """Manejador de cambio de ruta para la navegación."""
+        """Route change handler for navigation."""
         # print(f"DEBUG: route_change called. page.route={page.route}, views_count={len(page.views)}")
         # if page.views:
         #     print(f"DEBUG: Current views in stack: {[v.route for v in page.views]}")
@@ -91,7 +91,7 @@ async def main(page: ft.Page):
         while page.views and page.views[0].route is None:
             page.views.pop(0)
 
-        # Vista de Login (ruta inicial si no hay ARL)
+        # Login View (initial route if no ARL)
         if page.route == "/login" or not APP_STATE.get("arl"):
             # Clear views when going to login to reset navigation stack
             page.views.clear()
@@ -101,7 +101,7 @@ async def main(page: ft.Page):
             view = login_view.LoginView(APP_STATE)
             view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
             page.views.append(view)
-        # Vistas principales de la app
+        # Main Views
         else:
             # Show navigation buttons when logged in
             if APP_STATE.get("titlebar"):
@@ -149,7 +149,7 @@ async def main(page: ft.Page):
                     view = player_view.PlayerView(APP_STATE)
                     view.padding = ft.padding.only(top=40)  # Add padding for custom title bar
 
-                # Añadir una ruta de fallback o una página 404
+                # Add a fallback route or a 404 page
                 else:
                     if not page.views:
                         view = search_view.SearchView(APP_STATE)
@@ -176,7 +176,7 @@ async def main(page: ft.Page):
             APP_STATE["titlebar"].update_back_button()
 
     async def view_pop(view):
-        """Manejador para el botón de 'atrás'."""
+        """Handler for the 'back' button."""
         page.views.pop()
         top_view = page.views[-1]
         page.go(top_view.route)

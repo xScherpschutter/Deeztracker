@@ -50,8 +50,8 @@ class MiniPlayer(ft.Container):
         )
 
     def on_track_change(self, track):
-        self.track_title.value = track.get('title', 'Desconocido')
-        self.artist_name.value = track.get('artist', 'Desconocido')
+        self.track_title.value = track.get('title', 'Unknown')
+        self.artist_name.value = track.get('artist', 'Unknown')
         
         # Use cover if exists and not empty, otherwise placeholder
         cover = track.get('cover', '')

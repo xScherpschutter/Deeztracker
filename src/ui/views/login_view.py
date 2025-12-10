@@ -53,10 +53,10 @@ class LoginView(ft.View):
         ]
 
     async def login_clicked(self, e):
-        """Maneja el evento de clic en el botón de login."""
+        """Handles the login button click event."""
         arl_token = self.arl_input.value.strip()
         if not arl_token:
-            self.status_text.value = "Por favor, introduce un token ARL."
+            self.status_text.value = "Please enter an ARL token."
             self.update()
             return
 
@@ -66,16 +66,16 @@ class LoginView(ft.View):
         self.update()
 
         try:
-            # La validación del token se hace intentando inicializar el servicio de descarga.
-            # Este es un supuesto basado en la estructura de DeezloaderService.
+            # Token validation is done by attempting to initialize the download service.
+            # This is based on the structure of DeezloaderService.
             downloader = DeezloaderService(arl=arl_token)
             
-            # Si la inicialización es exitosa, guardamos el estado y navegamos.
+            # If initialization is successful, save state and navigate.
             self.app_state["arl"] = arl_token
             self.app_state["api"] = DeezerAPIService()
             self.app_state["downloader"] = downloader
             
-            # Guardar ARL en client_storage para persistencia
+            # Save ARL to client_storage for persistence
             await self.page.client_storage.set_async("arl_token", arl_token)
             
             # Show navigation buttons after successful login
@@ -85,8 +85,8 @@ class LoginView(ft.View):
             self.page.go("/search")
 
         except Exception as ex:
-            print(f"Error de login: {ex}")
-            self.status_text.value = "Token ARL inválido o error de conexión."
+            print(f"Login error: {ex}")
+            self.status_text.value = "Invalid ARL token or connection error."
             self.login_button.disabled = False
             self.progress_ring.visible = False
             self.update()

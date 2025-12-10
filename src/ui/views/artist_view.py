@@ -57,13 +57,13 @@ class ArtistView(ft.View):
         ]
 
     def did_mount(self):
-        """Se llama cuando la vista se monta. Inicia la carga de datos."""
+        """Called when the view is mounted. Starts loading data."""
         self.page.run_task(self.load_artist_data)
         
     async def load_artist_data(self):
-        """Carga los datos del artista, sus álbumes y top canciones de forma concurrente."""
+        """Loads the artist data, their albums and top tracks concurrently."""
         try:
-            # Hacemos las llamadas a la API en paralelo
+            # Make API calls in parallel
             results = await asyncio.gather(
                 self.api.get_artist_info(self.artist_id),
                 self.api.get_artist_albums(self.artist_id),
@@ -71,22 +71,22 @@ class ArtistView(ft.View):
             )
             artist_info, artist_albums, top_tracks_response = results
 
-            # Poblar información del artista
+            # Populate artist information
             self.artist_name.value = artist_info.name
             self.artist_image.src = artist_info.picture_big
             self.fan_count.value = f"{artist_info.nb_fan:,} fans"
             
-            # Poblar álbumes
+            # Populate albums
             if artist_albums:
                 for album in artist_albums:
                     self.albums_row.controls.append(
                         list_items.AlbumCard(page=self.page, album_data=album)
                     )
             
-            # Poblar top canciones
+            # Populate top tracks
             if top_tracks_response and top_tracks_response.get('data'):
                 for track in top_tracks_response['data']:
-                    # La respuesta de /top es un poco diferente, la adaptamos
+                    # The /top response is slightly different, we adapt it
                     track_obj_for_list = lambda t: type('obj', (object,), {
                         'id': t['id'],
                         'title_short': t['title_short'],
@@ -106,10 +106,10 @@ class ArtistView(ft.View):
             self.progress_container.visible = False
             self.content_column.visible = True
         except Exception as e:
-            print(f"Error cargando artista: {e}")
+            print(f"Error loading artist: {e}")
             self.progress_container.visible = False
             self.content_column.controls.clear()
-            self.content_column.controls.append(ft.Text("Error al cargar datos del artista.", color=theme.ERROR_COLOR))
+            self.content_column.controls.append(ft.Text("Error loading artist data.", color=theme.ERROR_COLOR))
             self.content_column.visible = True
         
         self.update()
@@ -129,8 +129,8 @@ class ArtistView(ft.View):
             page.open(self.snackbar)
             
         except Exception as e:
-            print(f"Error al descargar {track_data.title_short}: {e}")
-            self.snackbar.content = ft.Text(f"Error al descargar '{track_data.title_short}': {e}")
+            print(f"Error downloading {track_data.title_short}: {e}")
+            self.snackbar.content = ft.Text(f"Error downloading '{track_data.title_short}': {e}")
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self)
 

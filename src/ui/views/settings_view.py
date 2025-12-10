@@ -137,7 +137,7 @@ class SettingsView(ft.View):
             if self.app_state.get("downloader"):
                 self.app_state["downloader"].output_dir = e.path
             
-            print(f"Carpeta de música guardada: {e.path}")
+            print(f"Music folder saved: {e.path}")
             self.update()
 
     async def reset_music_path(self, e):
@@ -149,14 +149,14 @@ class SettingsView(ft.View):
         if self.app_state.get("downloader"):
             self.app_state["downloader"].output_dir = default_path
         
-        print(f"Carpeta de música restaurada: {default_path}")
+        print(f"Music folder restored: {default_path}")
         self.update()
 
     async def save_format_preference(self, e):
         music_format = self.format_dropdown.value
         await self.page.client_storage.set_async("download_format", music_format)
         await self.page.client_storage.set_async("download_quality", self.format_mapper.get(music_format, "FLAC"))
-        print(f"Formato de descarga guardado: {self.format_mapper.get(music_format, 'FLAC')}")
+        print(f"Download format saved: {self.format_mapper.get(music_format, 'FLAC')}")
 
     async def logout(self, e):
         # Stop player and clear playlist

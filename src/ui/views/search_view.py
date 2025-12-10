@@ -32,7 +32,7 @@ class SearchView(ft.View):
         self.progress_container = ft.Container(
             content=ft.ProgressRing(),
             alignment=ft.alignment.center,
-            visible=False # Inicialmente invisible
+            visible=False # Initially invisible
         )
 
         self.load_more_button = ft.ElevatedButton(
@@ -157,13 +157,13 @@ class SearchView(ft.View):
             page.open(self.snackbar)
             
         except Exception as e:
-            print(f"Error al descargar {track_data.title}: {e}")
-            self.snackbar.content = ft.Text(f"Error al descargar '{track_data.title}': {e}")
+            print(f"Error downloading {track_data.title}: {e}")
+            self.snackbar.content = ft.Text(f"Error downloading '{track_data.title}': {e}")
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self.snackbar)
 
     async def perform_search(self, e):
-        """Ejecuta la búsqueda cuando el usuario presiona Enter."""
+        """Executes the search when the user presses Enter."""
         query = self.search_field.value.strip()
         if not query:
             return
@@ -171,7 +171,7 @@ class SearchView(ft.View):
         # Hide empty state and show loading
         self.empty_state.visible = False
         self.results_column.controls.clear()
-        self.results_column.controls.append(ft.Text("Buscando...", color=theme.SECONDARY_TEXT))
+        self.results_column.controls.append(ft.Text("Searching...", color=theme.SECONDARY_TEXT))
         self.progress_container.visible = True
         self.load_more_button.visible = False
         self.current_query = query
@@ -212,7 +212,7 @@ class SearchView(ft.View):
                     )
             else:
                 self.results_column.controls.append(
-                    ft.Text("No se encontraron resultados.", color=theme.SECONDARY_TEXT)
+                    ft.Text("No results found.", color=theme.SECONDARY_TEXT)
                 )
             
             if response and response.next:
@@ -224,10 +224,10 @@ class SearchView(ft.View):
                 self.load_more_button.visible = False
 
         except Exception as ex:
-            print(f"Error en la búsqueda: {ex}")
+            print(f"Error in search: {ex}")
             self.results_column.controls.clear()
             self.results_column.controls.append(
-                ft.Text("Error al realizar la búsqueda.", color=theme.ERROR_COLOR)
+                ft.Text("Error performing search.", color=theme.ERROR_COLOR)
             )
         finally:
             self.progress_container.visible = False
@@ -238,7 +238,7 @@ class SearchView(ft.View):
             return
 
         self.load_more_button.disabled = True
-        self.load_more_button.text = "Cargando..."
+        self.load_more_button.text = "Loading..."
         # Remove button temporarily to avoid duplicates or issues during update
         if self.load_more_container in self.results_column.controls:
             self.results_column.controls.remove(self.load_more_container)
@@ -284,14 +284,14 @@ class SearchView(ft.View):
                 self.load_more_button.visible = False
 
         except Exception as ex:
-            print(f"Error al cargar más resultados: {ex}")
-            self.page.open(ft.SnackBar(ft.Text(f"Error al cargar más resultados: {ex}", color=theme.ERROR_COLOR)))
+            print(f"Error loading more results: {ex}")
+            self.page.open(ft.SnackBar(ft.Text(f"Error loading more results: {ex}", color=theme.ERROR_COLOR)))
         finally:
             self.load_more_button.disabled = False
-            self.load_more_button.text = "Cargar más"
+            self.load_more_button.text = "Load more"
             self.update()
 
     async def tab_changed(self, e):
-        """Vuelve a ejecutar la búsqueda si hay texto cuando se cambia de tab."""
+        """Re-executes the search if there is text when the tab is changed."""
         if self.search_field.value.strip():
             await self.perform_search(e)

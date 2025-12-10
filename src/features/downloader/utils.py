@@ -1,15 +1,15 @@
 """
-Utilidades para detectar el sistema operativo y obtener rutas de música.
+Utilities for detecting the operating system and getting music paths.
 """
 import os
 import sys
 
 
 def get_os_name() -> str:
-    """Detecta el sistema operativo actual.
+    """Detects the current operating system.
     
     Returns:
-        str: 'windows', 'linux', o 'macos'
+        str: 'windows', 'linux', or 'macos'
     """
     if sys.platform == "win32":
         return "windows"
@@ -20,42 +20,42 @@ def get_os_name() -> str:
 
 
 def get_music_folder() -> str:
-    """Obtiene la carpeta de música del sistema operativo.
+    """Gets the operating system's music folder.
     
     Returns:
-        str: Ruta absoluta a la carpeta de música del usuario.
+        str: Absolute path to the user's music folder.
     """
     user_home = os.path.expanduser("~")
     os_name = get_os_name()
     
     if os_name == "windows":
-        # Windows: usar la carpeta Music del usuario
+        # Windows: use the user's Music folder
         music_folder = os.path.join(user_home, "Music")
         
-        # Si no existe, intentar con "Música" (español)
+        # If it doesn't exist, try with "Música" (Spanish)
         if not os.path.exists(music_folder):
             music_folder = os.path.join(user_home, "Música")
         
-        # Si tampoco existe, crearla
+        # If it still doesn't exist, create it
         if not os.path.exists(music_folder):
             music_folder = os.path.join(user_home, "Music")
             os.makedirs(music_folder, exist_ok=True)
     
     elif os_name == "macos":
-        # macOS: usar la carpeta Music del usuario
+        # macOS: use the user's Music folder
         music_folder = os.path.join(user_home, "Music")
         if not os.path.exists(music_folder):
             os.makedirs(music_folder, exist_ok=True)
     
     else:
-        # Linux: usar XDG_MUSIC_DIR si está definido, sino ~/Music
+        # Linux: use XDG_MUSIC_DIR if defined, otherwise ~/Music
         music_folder = os.environ.get("XDG_MUSIC_DIR")
         
         if not music_folder or not os.path.exists(music_folder):
             music_folder = os.path.join(user_home, "Music")
         
         if not os.path.exists(music_folder):
-            # Intentar con "Música"
+            # Try with "Música"
             alt_folder = os.path.join(user_home, "Música")
             if os.path.exists(alt_folder):
                 music_folder = alt_folder
@@ -66,16 +66,16 @@ def get_music_folder() -> str:
 
 
 def get_downloads_folder() -> str:
-    """Obtiene la carpeta de descargas del sistema operativo.
+    """Gets the operating system's downloads folder.
     
     Returns:
-        str: Ruta absoluta a la carpeta de descargas del usuario.
+        str: Absolute path to the user's downloads folder.
     """
     user_home = os.path.expanduser("~")
     
     downloads_folder = os.path.join(user_home, "Downloads")
     
-    # Verificar alternativas en español
+    # Check for Spanish alternatives
     if not os.path.exists(downloads_folder):
         downloads_folder = os.path.join(user_home, "Descargas")
     
@@ -87,11 +87,11 @@ def get_downloads_folder() -> str:
 
 
 def get_deeztracker_music_folder() -> str:
-    """Obtiene la carpeta específica de Deeztracker para guardar música.
-    Crea una subcarpeta 'Deeztracker' dentro de la carpeta de música del sistema.
+    """Gets the specific Deeztracker folder for saving music.
+    Creates a 'Deeztracker' subfolder inside the system's music folder.
     
     Returns:
-        str: Ruta absoluta a la carpeta Deeztracker/Music.
+        str: Absolute path to the Deeztracker/Music folder.
     """
     music_folder = get_music_folder()
     deeztracker_folder = os.path.join(music_folder, "Deeztracker")
@@ -108,12 +108,12 @@ def get_custom_music_folder(custom_path: str = None) -> str:
     return get_deeztracker_music_folder()
 
 
-# Información del sistema para debugging
+# System information for debugging
 def get_system_info() -> dict:
-    """Obtiene información del sistema para debugging.
+    """Gets system information for debugging.
     
     Returns:
-        dict: Diccionario con información del sistema.
+        dict: Dictionary with system information.
     """
     return {
         "os": get_os_name(),

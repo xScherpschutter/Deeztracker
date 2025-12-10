@@ -3,23 +3,23 @@ from ui import theme
 import math
 
 def format_duration(seconds: int) -> str:
-    """Convierte segundos en un formato M:SS."""
+    """Converts seconds to M:SS format."""
     mins = math.floor(seconds / 60)
     secs = seconds % 60
     return f"{mins}:{secs:02}"
 
 def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None):
     """
-    Un componente reutilizable para mostrar un resultado de búsqueda.
-    Navega a la vista de detalle correspondiente al hacer clic.
+    A reusable component to display a search result.
+    Navigates to the corresponding detail view on click.
     """
-    # Determinar los detalles basados en el tipo de item
+    # Determine details based on item type
     destination_route = ""
-    image_src = "https://via.placeholder.com/50" # Fallback general
+    image_src = "https://via.placeholder.com/50" # General fallback
 
     if item_type == "artist":
         title = item_data.name
-        subtitle = "Artista"
+        subtitle = "Artist"
         if item_data.picture_medium:
             image_src = item_data.picture_medium
         destination_route = f"/artist/{item_data.id}"
@@ -41,14 +41,14 @@ def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None)
             image_src = item_data.picture_medium
         destination_route = f"/playlist/{item_data.id}"
     else:
-        return ft.Container() # No mostrar nada si el tipo no es válido
+        return ft.Container() # Don't display anything if the type is not valid
 
     def on_item_click(e):
         if item_type == "track" and on_download:
             p = e.control.page
             p.run_task(on_download, p, item_data)
         elif destination_route:
-            print(f"Navegando a: {destination_route}")
+            print(f"Navigating to: {destination_route}")
             page.go(destination_route)
 
     return ft.ListTile(
@@ -56,13 +56,13 @@ def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None)
         title=ft.Text(title, weight=ft.FontWeight.BOLD),
         subtitle=ft.Text(subtitle, color=theme.SECONDARY_TEXT),
         on_click=on_item_click,
-        data=item_data # Guardar el objeto completo para referencia si es necesario
+        data=item_data # Store the complete object for reference if needed
     )
 
 def TrackListItem(page: ft.Page, track_data, on_download):
     """
-    Componente para una canción en una lista (álbum, playlist, etc.).
-    Al hacer clic, se descarga la canción.
+    Component for a song in a list (album, playlist, etc.).
+    On click, the song is downloaded.
     """
     def download_clicked(e):
         p = e.control.page
@@ -77,7 +77,7 @@ def TrackListItem(page: ft.Page, track_data, on_download):
 
 def AlbumCard(page: ft.Page, album_data):
     """
-    Componente para mostrar un álbum en la página de un artista.
+    Component to display an album on an artist's page.
     """
     cover_url = album_data.cover_medium if album_data.cover_medium else "https://via.placeholder.com/150"
     

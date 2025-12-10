@@ -128,14 +128,14 @@ class LocalView(ft.View):
                                 music_files.append({
                                     "path": full_path,
                                     "title": os.path.splitext(os.path.basename(full_path))[0],
-                                    "artist": "Desconocido",
-                                    "album": "Desconocido",
+                                    "artist": "Unknown",
+                                    "album": "Unknown",
                                     "cover": ""
                                 })
             except PermissionError:
-                print(f"Sin permisos para acceder a: {directory}")
+                print(f"No permissions to access: {directory}")
             except Exception as e:
-                print(f"Error escaneando {directory}: {e}")
+                print(f"Error scanning {directory}: {e}")
         
         return music_files
 
@@ -146,14 +146,14 @@ class LocalView(ft.View):
         self.tracks_column.controls.append(
             ft.Row([
                 ft.ProgressRing(width=20, height=20, stroke_width=2),
-                ft.Text("Escaneando archivos de música...", color=theme.SECONDARY_TEXT)
+                ft.Text("Scanning music files...", color=theme.SECONDARY_TEXT)
             ], spacing=10)
         )
         self.update()
         
         # Get OS-specific directories with custom path
         scan_dirs = get_music_directories(self.custom_music_path)
-        self.scan_info.value = f"Escaneando {len(scan_dirs)} directorios..."
+        self.scan_info.value = f"Scanning {len(scan_dirs)} directories..."
         self.update()
         
         # Run blocking file scan in a separate thread
@@ -163,7 +163,7 @@ class LocalView(ft.View):
             print(f"Error in file scanning: {e}")
             self.music_files = []
         
-        self.scan_info.value = f"Total: {len(self.music_files)} archivos encontrados"
+        self.scan_info.value = f"Total: {len(self.music_files)} files found"
         self.filtered_files = self.music_files
         self.update_list()
 
@@ -185,8 +185,8 @@ class LocalView(ft.View):
             self.tracks_column.controls.append(
                 ft.Column([
                     ft.Icon(ft.Icons.MUSIC_OFF, size=48, color=theme.SECONDARY_TEXT),
-                    ft.Text("No se encontraron archivos de música.", color=theme.SECONDARY_TEXT),
-                    ft.Text("Los archivos deben estar en las carpetas de Música del sistema.", 
+                    ft.Text("No music files found.", color=theme.SECONDARY_TEXT),
+                    ft.Text("Files must be in the system Music folders.", 
                             color=theme.SECONDARY_TEXT, size=12)
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
             )
@@ -226,8 +226,8 @@ class LocalView(ft.View):
     def get_metadata(self, file_path):
         """Extract metadata and cover art from audio file. Cover is cached to temp file."""
         title = os.path.splitext(os.path.basename(file_path))[0]
-        artist = "Desconocido"
-        album = "Desconocido"
+        artist = "Unknown"
+        album = "Unknown"
         cover = ""
         
         try:

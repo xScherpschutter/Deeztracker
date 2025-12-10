@@ -15,12 +15,10 @@ class DeezloaderService:
         self.convert_to = convert_to if convert_to in self.VALID_CONVERT_TO else self.VALID_CONVERT_TO[0]
         
     async def download_track(self, track_url: str | HttpUrl, quality_download: str = None, convert_to: str = None) -> None:
-        """Descarga una pista de forma asíncrona, ejecutando la llamada síncrona en un hilo."""
+        """Asynchronously downloads a track, executing the synchronous call in a thread."""
         
         q_download = quality_download if quality_download else self.quality_download
         c_to = convert_to if convert_to else self.convert_to
-        print(f"Formato de descarga: {q_download}")
-        print(f"Convertir a: {c_to}")
         
         try:
             await asyncio.to_thread(
@@ -36,12 +34,10 @@ class DeezloaderService:
             print(f"Ocurrió un error en la descarga de la pista: {e}")
     
     async def download_album(self, album_url: str | HttpUrl, quality_download: str = None, convert_to: str = None) -> None:
-        """Descarga un álbum de forma asíncrona, ejecutando la llamada síncrona en un hilo."""
+        """Asynchronously downloads an album, executing the synchronous call in a thread."""
         
         q_download = quality_download if quality_download else self.quality_download
         c_to = convert_to if convert_to else self.convert_to
-        print(f"Formato de descarga: {q_download}")
-        print(f"Convertir a: {c_to}")
 
         try:
             await asyncio.to_thread(
@@ -58,7 +54,7 @@ class DeezloaderService:
             print(f"Ocurrió un error en la descarga del álbum: {e}")
     
     async def download_playlist(self, playlist_url: str | HttpUrl, quality_download: str = None, convert_to: str = None) -> None:
-        """Descarga una playlist de forma asíncrona, ejecutando la llamada síncrona en un hilo."""
+        """Asynchronously downloads a playlist, executing the synchronous call in a thread."""
         
         q_download = quality_download if quality_download else self.quality_download
         c_to = convert_to if convert_to else self.convert_to
