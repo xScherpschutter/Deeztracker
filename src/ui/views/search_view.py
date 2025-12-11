@@ -7,12 +7,13 @@ class SearchView(ft.View):
         super().__init__(route="/search", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
         self.api = app_state["api"]
+        self.translator = app_state.get("translator")
         self.next_url = None
         self.current_query = ""
         self.current_tab_index = 0
 
         self.search_field = ft.TextField(
-            hint_text="Busca un artista, álbum, canción...",
+            hint_text=self.translator.t("search.hint") if self.translator else "Search for an artist, album, song...",
             on_submit=self.perform_search,
             border_radius=10,
             border_color=theme.ACCENT_COLOR,
@@ -36,7 +37,7 @@ class SearchView(ft.View):
         )
 
         self.load_more_button = ft.ElevatedButton(
-            text="Cargar más",
+            text=self.translator.t("search.load_more") if self.translator else "Load more",
             on_click=self.load_more,
             visible=False,
             bgcolor=theme.ACCENT_COLOR,
@@ -60,7 +61,7 @@ class SearchView(ft.View):
                     ),
                     ft.Container(height=20),
                     ft.Text(
-                        "Descubre tu música favorita",
+                        self.translator.t("search.title") if self.translator else "Discover your favorite music",
                         size=24,
                         weight=ft.FontWeight.BOLD,
                         color=theme.PRIMARY_TEXT,
@@ -68,7 +69,7 @@ class SearchView(ft.View):
                     ),
                     ft.Container(height=10),
                     ft.Text(
-                        "Busca artistas, álbumes, canciones o playlists",
+                        self.translator.t("search.subtitle") if self.translator else "Search for artists, albums, songs or playlists",
                         size=14,
                         color=theme.SECONDARY_TEXT,
                         text_align=ft.TextAlign.CENTER
@@ -80,7 +81,7 @@ class SearchView(ft.View):
                                 ft.Row(
                                     [
                                         ft.Icon(ft.Icons.TIPS_AND_UPDATES, size=20, color=theme.ACCENT_COLOR),
-                                        ft.Text("Escribe en la barra superior", size=13, color=theme.SECONDARY_TEXT)
+                                        ft.Text(self.translator.t("search.tip_search") if self.translator else "Type in the search bar above", size=13, color=theme.SECONDARY_TEXT)
                                     ],
                                     spacing=10
                                 ),
@@ -88,7 +89,7 @@ class SearchView(ft.View):
                                 ft.Row(
                                     [
                                         ft.Icon(ft.Icons.TAB, size=20, color=theme.ACCENT_COLOR),
-                                        ft.Text("Selecciona el tipo de búsqueda", size=13, color=theme.SECONDARY_TEXT)
+                                        ft.Text(self.translator.t("search.tip_tabs") if self.translator else "Select the search type", size=13, color=theme.SECONDARY_TEXT)
                                     ],
                                     spacing=10
                                 ),
@@ -96,7 +97,7 @@ class SearchView(ft.View):
                                 ft.Row(
                                     [
                                         ft.Icon(ft.Icons.DOWNLOAD, size=20, color=theme.ACCENT_COLOR),
-                                        ft.Text("Descarga tus canciones favoritas", size=13, color=theme.SECONDARY_TEXT)
+                                        ft.Text(self.translator.t("search.tip_download") if self.translator else "Download your favorite songs", size=13, color=theme.SECONDARY_TEXT)
                                     ],
                                     spacing=10
                                 ),
@@ -120,10 +121,10 @@ class SearchView(ft.View):
             selected_index=0,
             on_change=self.tab_changed,
             tabs=[
-                ft.Tab("Artista"),
-                ft.Tab("Álbum"),
-                ft.Tab("Canción"),
-                ft.Tab("Playlist"),
+                ft.Tab(self.translator.t("search.tab_artist") if self.translator else "Artist"),
+                ft.Tab(self.translator.t("search.tab_album") if self.translator else "Album"),
+                ft.Tab(self.translator.t("search.tab_song") if self.translator else "Song"),
+                ft.Tab(self.translator.t("search.tab_playlist") if self.translator else "Playlist"),
             ],
             indicator_color=theme.ACCENT_COLOR,
         )
@@ -142,6 +143,38 @@ class SearchView(ft.View):
                 ),
             ], expand=True, spacing=10, alignment=ft.MainAxisAlignment.START)
         ]
+        
+        # Subscribe to language changes
+        if self.translator:
+            self.translator.subscribe(self.on_language_change)
+    
+    def on_language_change(self, language_code):
+        """Called when the language changes."""
+        if not self.translator:
+            return
+        
+        # Update dynamic text elements
+        self.search_field.hint_text = self.translator.t("search.hint")
+        self.load_more_button.text = self.translator.t("search.load_more")
+        
+        # Update empty state
+        self.empty_state.content.controls[2].value = self.translator.t("search.title")
+        self.empty_state.content.controls[4].value = self.translator.t("search.subtitle")
+        tips_column = self.empty_state.content.controls[6].content
+        tips_column.controls[0].controls[1].value = self.translator.t("search.tip_search")
+        tips_column.controls[2].controls[1].value = self.translator.t("search.tip_tabs")
+        tips_column.controls[4].controls[1].value = self.translator.t("search.tip_download")
+        
+        # Update tabs
+        self.search_tabs.tabs[0].text = self.translator.t("search.tab_artist")
+        self.search_tabs.tabs[1].text = self.translator.t("search.tab_album")
+        self.search_tabs.tabs[2].text = self.translator.t("search.tab_song")
+        self.search_tabs.tabs[3].text = self.translator.t("search.tab_playlist")
+        
+        try:
+            self.update()
+        except:
+            pass  # Ignore if view is not mounted
 
     async def download_track(self, page: ft.Page, track_data):
         downloader = self.app_state["downloader"]
@@ -171,7 +204,7 @@ class SearchView(ft.View):
         # Hide empty state and show loading
         self.empty_state.visible = False
         self.results_column.controls.clear()
-        self.results_column.controls.append(ft.Text("Searching...", color=theme.SECONDARY_TEXT))
+        self.results_column.controls.append(ft.Text(self.translator.t("search.searching") if self.translator else "Searching...", color=theme.SECONDARY_TEXT))
         self.progress_container.visible = True
         self.load_more_button.visible = False
         self.current_query = query
@@ -212,7 +245,7 @@ class SearchView(ft.View):
                     )
             else:
                 self.results_column.controls.append(
-                    ft.Text("No results found.", color=theme.SECONDARY_TEXT)
+                    ft.Text(self.translator.t("search.no_results") if self.translator else "No results found.", color=theme.SECONDARY_TEXT)
                 )
             
             if response and response.next:
@@ -227,7 +260,7 @@ class SearchView(ft.View):
             print(f"Error in search: {ex}")
             self.results_column.controls.clear()
             self.results_column.controls.append(
-                ft.Text("Error performing search.", color=theme.ERROR_COLOR)
+                ft.Text(self.translator.t("search.error") if self.translator else "Error performing search.", color=theme.ERROR_COLOR)
             )
         finally:
             self.progress_container.visible = False
@@ -238,7 +271,7 @@ class SearchView(ft.View):
             return
 
         self.load_more_button.disabled = True
-        self.load_more_button.text = "Loading..."
+        self.load_more_button.text = self.translator.t("search.loading_more") if self.translator else "Loading..."
         # Remove button temporarily to avoid duplicates or issues during update
         if self.load_more_container in self.results_column.controls:
             self.results_column.controls.remove(self.load_more_container)
@@ -288,7 +321,7 @@ class SearchView(ft.View):
             self.page.open(ft.SnackBar(ft.Text(f"Error loading more results: {ex}", color=theme.ERROR_COLOR)))
         finally:
             self.load_more_button.disabled = False
-            self.load_more_button.text = "Load more"
+            self.load_more_button.text = self.translator.t("search.load_more") if self.translator else "Load more"
             self.update()
 
     async def tab_changed(self, e):

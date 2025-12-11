@@ -2,15 +2,16 @@ import flet as ft
 from ui import theme
 
 class CustomTitleBar(ft.WindowDragArea):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, app_state=None):
         self.page = page
+        self.translator = app_state.get("translator") if app_state else None
         
         # Window control buttons
         self.minimize_btn = ft.IconButton(
             icon=ft.Icons.MINIMIZE,
             icon_size=16,
             icon_color=theme.SECONDARY_TEXT,
-            tooltip="Minimizar",
+            tooltip=self.translator.t("titlebar.minimize") if self.translator else "Minimize",
             on_click=self.minimize_window,
             style=ft.ButtonStyle(
                 overlay_color={
@@ -23,7 +24,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon=ft.Icons.CROP_SQUARE,
             icon_size=16,
             icon_color=theme.SECONDARY_TEXT,
-            tooltip="Maximizar",
+            tooltip=self.translator.t("titlebar.maximize") if self.translator else "Maximize",
             on_click=self.toggle_maximize,
             style=ft.ButtonStyle(
                 overlay_color={
@@ -36,7 +37,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon=ft.Icons.CLOSE,
             icon_size=16,
             icon_color=theme.SECONDARY_TEXT,
-            tooltip="Cerrar",
+            tooltip=self.translator.t("titlebar.close") if self.translator else "Close",
             on_click=self.close_window,
             style=ft.ButtonStyle(
                 overlay_color={
@@ -50,7 +51,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon=ft.Icons.ARROW_BACK,
             icon_size=20,
             icon_color=theme.SECONDARY_TEXT,
-            tooltip="Atrás",
+            tooltip=self.translator.t("titlebar.back") if self.translator else "Back",
             on_click=self.go_back,
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(
@@ -65,7 +66,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon=ft.Icons.SEARCH,
             icon_size=20,
             icon_color=theme.ACCENT_COLOR if page.route == "/search" else theme.SECONDARY_TEXT,
-            tooltip="Buscar",
+            tooltip=self.translator.t("titlebar.search") if self.translator else "Search",
             on_click=lambda _: self.smart_navigate("/search"),
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(
@@ -79,7 +80,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon=ft.Icons.LIBRARY_MUSIC,
             icon_size=20,
             icon_color=theme.ACCENT_COLOR if page.route == "/local" else theme.SECONDARY_TEXT,
-            tooltip="Música Local",
+            tooltip=self.translator.t("titlebar.local_music") if self.translator else "Local Music",
             on_click=lambda _: self.smart_navigate("/local"),
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(
@@ -93,7 +94,7 @@ class CustomTitleBar(ft.WindowDragArea):
             icon=ft.Icons.SETTINGS,
             icon_size=20,
             icon_color=theme.ACCENT_COLOR if page.route == "/settings" else theme.SECONDARY_TEXT,
-            tooltip="Configuración",
+            tooltip=self.translator.t("titlebar.settings") if self.translator else "Settings",
             on_click=lambda _: self.smart_navigate("/settings"),
             visible=False,  # Hidden by default
             style=ft.ButtonStyle(

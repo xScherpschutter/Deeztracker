@@ -8,7 +8,7 @@ def format_duration(seconds: int) -> str:
     secs = seconds % 60
     return f"{mins}:{secs:02}"
 
-def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None):
+def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None, translator=None):
     """
     A reusable component to display a search result.
     Navigates to the corresponding detail view on click.
@@ -19,7 +19,7 @@ def SearchResultItem(page: ft.Page, item_data, item_type: str, on_download=None)
 
     if item_type == "artist":
         title = item_data.name
-        subtitle = "Artist"
+        subtitle = translator.t("common.artist") if translator else "Artist"
         if item_data.picture_medium:
             image_src = item_data.picture_medium
         destination_route = f"/artist/{item_data.id}"

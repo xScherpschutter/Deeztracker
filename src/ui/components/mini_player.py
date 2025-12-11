@@ -6,6 +6,7 @@ class MiniPlayer(ft.Container):
         super().__init__()
         self.page = page
         self.app_state = app_state
+        self.translator = app_state.get("translator")
         self.player_manager = app_state["player_manager"]
         
         self.visible = False # Hidden by default until a track is loaded
@@ -50,8 +51,8 @@ class MiniPlayer(ft.Container):
         )
 
     def on_track_change(self, track):
-        self.track_title.value = track.get('title', 'Unknown')
-        self.artist_name.value = track.get('artist', 'Unknown')
+        self.track_title.value = track.get('title', self.translator.t("mini_player.unknown_title") if self.translator else "Unknown")
+        self.artist_name.value = track.get('artist', self.translator.t("mini_player.unknown_artist") if self.translator else "Unknown")
         
         # Use cover if exists and not empty, otherwise placeholder
         cover = track.get('cover', '')

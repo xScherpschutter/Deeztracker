@@ -9,6 +9,7 @@ from ui.components import appbar
 from ui.components.custom_titlebar import CustomTitleBar
 from ui import theme
 from features.player.player_manager import PlayerManager
+from features.translations import Translator, AVAILABLE_LANGUAGES
 
 
 APP_STATE = {
@@ -18,6 +19,7 @@ APP_STATE = {
     "player_manager": None,
     "search_field_focused": False,  # Track if user is typing in a search field
     "titlebar": None,  # Reference to custom titlebar for controlling navigation visibility
+    "translator": None,  # Translation manager for i18n
 }
 
 async def main(page: ft.Page):
@@ -43,7 +45,7 @@ async def main(page: ft.Page):
     APP_STATE["player_manager"] = player_manager
 
     # Initialize Custom Title Bar
-    custom_titlebar = CustomTitleBar(page)
+    custom_titlebar = CustomTitleBar(page, APP_STATE)
     custom_titlebar.top = 0
     custom_titlebar.left = 0
     custom_titlebar.right = 0
@@ -57,6 +59,15 @@ async def main(page: ft.Page):
     mini_player.left = 0
     mini_player.right = 0
     page.overlay.append(mini_player)
+
+    # Initialize Translator
+    translator = Translator(default_language="en")
+    APP_STATE["translator"] = translator
+    
+    # Load language preference from storage
+    saved_language = await page.client_storage.get_async("app_language")
+    if saved_language in AVAILABLE_LANGUAGES:
+        translator.set_language(saved_language)
 
     # Attempt to load ARL from client_storage
     arl_token = await page.client_storage.get_async("arl_token")

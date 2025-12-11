@@ -8,19 +8,28 @@ class PlaylistView(ft.View):
     def __init__(self, app_state, playlist_id: str):
         super().__init__(route=f"/playlist/{playlist_id}", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
+        self.translator = app_state.get("translator")
         self.api = app_state["api"]
         self.downloader = app_state["downloader"]
         self.playlist_id = playlist_id
         self.playlist_data: Playlist = None
         self.snackbar = ft.SnackBar(content=ft.Text(""))
 
-        self.playlist_title = ft.Text("Cargando...", style=theme.title_style, size=22, text_align=ft.TextAlign.CENTER)
+        self.playlist_title = ft.Text(self.translator.t("playlist.loading") if self.translator else "Loading...", style=theme.title_style, size=22, text_align=ft.TextAlign.CENTER)
         self.creator_name = ft.Text("", color=theme.SECONDARY_TEXT, text_align=ft.TextAlign.CENTER)
         self.playlist_cover = ft.Image(
             width=200, height=200, fit=ft.ImageFit.COVER, border_radius=ft.border_radius.all(10)
         )
         
         self.tracks_column = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
+
+        self.download_button = ft.ElevatedButton(
+            text=self.translator.t("playlist.button_download") if self.translator else "Download Full Playlist",
+            icon=ft.Icons.DOWNLOAD,
+            on_click=lambda e: self.page.run_task(self._download_playlist_full),
+            bgcolor=theme.ACCENT_COLOR,
+            color=theme.PRIMARY_TEXT
+        )
 
         self.content_column = ft.Column(
             [
@@ -29,13 +38,7 @@ class PlaylistView(ft.View):
                         ft.Row([self.playlist_cover], alignment=ft.MainAxisAlignment.CENTER),
                         self.playlist_title,
                         self.creator_name,
-                        ft.ElevatedButton(
-                            "Descargar Playlist Completa",
-                            icon=ft.Icons.DOWNLOAD,
-                            on_click=lambda e: self.page.run_task(self._download_playlist_full, e),
-                            bgcolor=theme.ACCENT_COLOR,
-                            color=theme.BG_COLOR
-                        ),
+                        self.download_button,
                         ft.Divider(),
                     ],
                     spacing=15,

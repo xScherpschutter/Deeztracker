@@ -48,6 +48,7 @@ class LocalView(ft.View):
         super().__init__(route="/local", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
         self.player_manager = app_state["player_manager"]
+        self.translator = app_state.get("translator")
         self.custom_music_path = None  # Will be loaded from storage
         
         self.music_files = []
@@ -55,7 +56,7 @@ class LocalView(ft.View):
         self.tracks_column = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
         
         self.search_field = ft.TextField(
-            hint_text="Buscar en música local...",
+            hint_text=self.translator.t("local.hint_search") if self.translator else "Search in local music...",
             prefix_icon=ft.Icons.SEARCH,
             on_change=self.filter_tracks,
             border_color=theme.ACCENT_COLOR,
@@ -66,7 +67,7 @@ class LocalView(ft.View):
 
         # OS Info display
         os_name = "Windows" if sys.platform == "win32" else "Linux/macOS"
-        self.os_info = ft.Text(f"Sistema: {os_name}", size=12, color=theme.SECONDARY_TEXT)
+        self.os_info = ft.Text(f"{self.translator.t('local.system') if self.translator else 'System'}: {os_name}", size=12, color=theme.SECONDARY_TEXT)
         self.scan_info = ft.Text("", size=12, color=theme.SECONDARY_TEXT)
 
         self.controls = [
@@ -74,12 +75,12 @@ class LocalView(ft.View):
                 content=ft.Column(
                     [
                         ft.Row([
-                            ft.Text("Encuentra tu música", size=24, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
+                            ft.Text(self.translator.t("local.title") if self.translator else "Find your music", size=24, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
                             ft.Container(expand=True),
                             ft.IconButton(
                                 icon=ft.Icons.REFRESH,
                                 icon_color=theme.ACCENT_COLOR,
-                                tooltip="Reescanear música",
+                                tooltip=self.translator.t("local.tooltip_refresh") if self.translator else "Rescan music",
                                 on_click=lambda e: self.page.run_task(self.load_local_music)
                             )
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
@@ -146,14 +147,14 @@ class LocalView(ft.View):
         self.tracks_column.controls.append(
             ft.Row([
                 ft.ProgressRing(width=20, height=20, stroke_width=2),
-                ft.Text("Scanning music files...", color=theme.SECONDARY_TEXT)
+                ft.Text(self.translator.t("local.scanning") if self.translator else "Scanning music files...", color=theme.SECONDARY_TEXT)
             ], spacing=10)
         )
         self.update()
         
         # Get OS-specific directories with custom path
         scan_dirs = get_music_directories(self.custom_music_path)
-        self.scan_info.value = f"Scanning {len(scan_dirs)} directories..."
+        self.scan_info.value = self.translator.t("local.scanning_dirs", count=len(scan_dirs)) if self.translator else f"Scanning {len(scan_dirs)} directories..."
         self.update()
         
         # Run blocking file scan in a separate thread
@@ -163,7 +164,7 @@ class LocalView(ft.View):
             print(f"Error in file scanning: {e}")
             self.music_files = []
         
-        self.scan_info.value = f"Total: {len(self.music_files)} files found"
+        self.scan_info.value = self.translator.t("local.total_files", count=len(self.music_files)) if self.translator else f"Total: {len(self.music_files)} files found"
         self.filtered_files = self.music_files
         self.update_list()
 
@@ -185,8 +186,8 @@ class LocalView(ft.View):
             self.tracks_column.controls.append(
                 ft.Column([
                     ft.Icon(ft.Icons.MUSIC_OFF, size=48, color=theme.SECONDARY_TEXT),
-                    ft.Text("No music files found.", color=theme.SECONDARY_TEXT),
-                    ft.Text("Files must be in the system Music folders.", 
+                    ft.Text(self.translator.t("local.no_files") if self.translator else "No music files found.", color=theme.SECONDARY_TEXT),
+                    ft.Text(self.translator.t("local.no_files_help") if self.translator else "Files must be in the system Music folders.", 
                             color=theme.SECONDARY_TEXT, size=12)
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
             )

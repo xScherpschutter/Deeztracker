@@ -8,19 +8,28 @@ class AlbumView(ft.View):
     def __init__(self, app_state, album_id: str):
         super().__init__(route=f"/album/{album_id}", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
+        self.translator = app_state.get("translator")
         self.api = app_state["api"]
         self.downloader = app_state["downloader"]
         self.album_id = album_id
         self.album_data: AlbumResponse = None 
         self.snackbar = ft.SnackBar(content=ft.Text(""))
 
-        self.album_title = ft.Text("Cargando...", style=theme.title_style, size=22, text_align=ft.TextAlign.CENTER)
+        self.album_title = ft.Text(self.translator.t("album.loading") if self.translator else "Loading...", style=theme.title_style, size=22, text_align=ft.TextAlign.CENTER)
         self.artist_name = ft.Text("", color=theme.SECONDARY_TEXT, text_align=ft.TextAlign.CENTER)
         self.album_cover = ft.Image(
             width=200, height=200, fit=ft.ImageFit.COVER, border_radius=ft.border_radius.all(10)
         )
         
         self.tracks_column = ft.ListView(spacing=5, expand=True, padding=ft.padding.only(bottom=100))
+
+        self.download_button = ft.ElevatedButton(
+            text=self.translator.t("album.button_download") if self.translator else "Download Full Album",
+            icon=ft.Icons.DOWNLOAD,
+            on_click=lambda e: self.page.run_task(self._download_album_full),
+            bgcolor=theme.ACCENT_COLOR,
+            color=theme.BG_COLOR
+        )
 
         self.content_column = ft.Column(
             [
@@ -29,13 +38,7 @@ class AlbumView(ft.View):
                         ft.Row([self.album_cover], alignment=ft.MainAxisAlignment.CENTER),
                         self.album_title,
                         self.artist_name,
-                        ft.ElevatedButton(
-                            "Descargar Álbum Completo",
-                            icon=ft.Icons.DOWNLOAD,
-                            on_click=lambda e: self.page.run_task(self._download_album_full, e),
-                            bgcolor=theme.ACCENT_COLOR,
-                            color=theme.BG_COLOR
-                        ),
+                        self.download_button,
                         ft.Divider(),
                     ],
                     spacing=15,

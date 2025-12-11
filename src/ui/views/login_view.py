@@ -7,9 +7,10 @@ class LoginView(ft.View):
     def __init__(self, app_state):
         super().__init__(route="/login", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
+        self.translator = app_state.get("translator")
 
         self.arl_input = ft.TextField(
-            label="Token ARL de Deezer",
+            label=self.translator.t("login.arl_label") if self.translator else "Deezer ARL Token",
             password=True,
             can_reveal_password=True,
             border_color=theme.ACCENT_COLOR,
@@ -17,7 +18,7 @@ class LoginView(ft.View):
         )
 
         self.login_button = ft.ElevatedButton(
-            text="Iniciar Sesión",
+            text=self.translator.t("login.button") if self.translator else "Sign In",
             icon=ft.Icons.LOGIN,
             on_click=self.login_clicked,
             bgcolor=theme.ACCENT_COLOR,
@@ -33,8 +34,8 @@ class LoginView(ft.View):
                 content=ft.Column(
                     [
                         ft.Icon(name=ft.Icons.MUSIC_NOTE, size=60, color=theme.ACCENT_COLOR),
-                        ft.Text("Deeztracker", style=theme.title_style, size=32),
-                        ft.Text("Inicia sesión con tu ARL Token", color=theme.SECONDARY_TEXT),
+                        ft.Text(self.translator.t("login.title") if self.translator else "Deeztracker", style=theme.title_style, size=32),
+                        ft.Text(self.translator.t("login.subtitle") if self.translator else "Sign in with your ARL Token", color=theme.SECONDARY_TEXT),
                         self.arl_input,
                         ft.Row(
                             [self.login_button, self.progress_ring],
@@ -51,12 +52,32 @@ class LoginView(ft.View):
                 padding=20,
             )
         ]
+        
+        # Subscribe to language changes
+        if self.translator:
+            self.translator.subscribe(self.on_language_change)
+    
+    def on_language_change(self, language_code):
+        """Called when the language changes."""
+        if not self.translator:
+            return
+        
+        self.arl_input.label = self.translator.t("login.arl_label")
+        self.login_button.text = self.translator.t("login.button")
+        
+        # Update static text elements
+        self.controls[0].content.controls[2].value = self.translator.t("login.subtitle")
+        
+        try:
+            self.update()
+        except:
+            pass  # Ignore if view is not mounted
 
     async def login_clicked(self, e):
         """Handles the login button click event."""
         arl_token = self.arl_input.value.strip()
         if not arl_token:
-            self.status_text.value = "Please enter an ARL token."
+            self.status_text.value = self.translator.t("login.error_empty") if self.translator else "Please enter an ARL token."
             self.update()
             return
 
@@ -86,7 +107,7 @@ class LoginView(ft.View):
 
         except Exception as ex:
             print(f"Login error: {ex}")
-            self.status_text.value = "Invalid ARL token or connection error."
+            self.status_text.value = self.translator.t("login.error_invalid") if self.translator else "Invalid ARL token or connection error."
             self.login_button.disabled = False
             self.progress_ring.visible = False
             self.update()

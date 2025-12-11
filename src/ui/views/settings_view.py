@@ -1,11 +1,13 @@
 import flet as ft
 from ui import theme
 from features.downloader.utils import get_deeztracker_music_folder
+from features.translations import AVAILABLE_LANGUAGES, LANGUAGE_NAMES
 
 class SettingsView(ft.View):
     def __init__(self, app_state):
         super().__init__(route="/settings", bgcolor=theme.BG_COLOR, scroll=ft.ScrollMode.ADAPTIVE)
         self.app_state = app_state
+        self.translator = app_state.get("translator")
         self.format_mapper = {
             "flac": "FLAC",
             "mp3-320": "MP3_320",
@@ -14,7 +16,7 @@ class SettingsView(ft.View):
         
         # Download Format Selection
         self.format_dropdown = ft.Dropdown(
-            label="Formato de Descarga",
+            label=self.translator.t("settings.download_format") if self.translator else "Download Format",
             width=200,
             options=[
                 ft.dropdown.Option("flac"),
@@ -23,6 +25,20 @@ class SettingsView(ft.View):
             ],
             value="mp3-320",
             on_change=self.save_format_preference,
+            border_color=theme.ACCENT_COLOR,
+            color=theme.PRIMARY_TEXT,
+        )
+
+        # Language Selection - dynamically generate options
+        self.language_dropdown = ft.Dropdown(
+            label="Idioma / Language",
+            width=200,
+            options=[
+                ft.dropdown.Option(key=lang_code, text=lang_name)
+                for lang_code, lang_name in LANGUAGE_NAMES.items()
+            ],
+            value="en",
+            on_change=self.save_language_preference,
             border_color=theme.ACCENT_COLOR,
             color=theme.PRIMARY_TEXT,
         )
@@ -37,48 +53,74 @@ class SettingsView(ft.View):
 
         self.folder_picker = ft.FilePicker(on_result=self.folder_picker_result)
 
+        # Store references to text controls for language updates
+        self.title_text = ft.Text(self.translator.t("settings.title") if self.translator else "Settings", size=24, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT)
+        self.downloads_text = ft.Text(self.translator.t("settings.downloads") if self.translator else "Downloads", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT)
+        self.format_note_text = ft.Text(
+            self.translator.t("settings.format_note") if self.translator else "Note: FLAC conversion is only available\nif FFmpeg is installed, otherwise it will be MP3.",
+            size=12,
+            color=theme.SECONDARY_TEXT,
+        )
+        self.music_folder_text = ft.Text(self.translator.t("settings.music_folder") if self.translator else "Music Folder", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT)
+        self.current_path_label = ft.Text(self.translator.t("settings.current_path") if self.translator else "Current path:", size=14, color=theme.PRIMARY_TEXT)
+        self.change_folder_btn = ft.ElevatedButton(
+            self.translator.t("settings.button_change") if self.translator else "Change Folder",
+            icon=ft.Icons.FOLDER_OPEN,
+            on_click=lambda _: self.folder_picker.get_directory_path(
+                dialog_title="Seleccionar carpeta de música"
+            ),
+            bgcolor=theme.ACCENT_COLOR,
+            color=ft.Colors.WHITE,
+        )
+        self.restore_btn = ft.TextButton(
+            self.translator.t("settings.button_restore") if self.translator else "Restore",
+            icon=ft.Icons.RESTORE,
+            on_click=self.reset_music_path,
+        )
+        self.folder_note_text = ft.Text(
+            self.translator.t("settings.folder_note") if self.translator else "This folder will be used to save downloads\nand to search for local music.",
+            size=12,
+            color=theme.SECONDARY_TEXT,
+        )
+        self.session_text = ft.Text(self.translator.t("settings.session") if self.translator else "Session", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT)
+        self.logout_btn = ft.ElevatedButton(
+            self.translator.t("settings.button_logout") if self.translator else "Sign Out", 
+            on_click=self.logout,
+            bgcolor=theme.ERROR_COLOR,
+            color=ft.Colors.WHITE
+        )
+
         self.controls = [
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Configuración", size=24, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
+                    self.title_text,
                     ft.Divider(color=theme.ACCENT_COLOR),
                     
-                    ft.Text("Descargas", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
+                    self.downloads_text,
                     self.format_dropdown,
                     ft.Container(
                         content=ft.Row([
                             ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=theme.SECONDARY_TEXT),
-                            ft.Text(
-                                "Nota: La conversión a FLAC solo está disponible \nsi se tiene FFmpeg instalado, de lo contrario será MP3.",
-                                size=12,
-                                color=theme.SECONDARY_TEXT,
-                            ),
+                            self.format_note_text,
                         ], spacing=8),
                         padding=ft.padding.only(top=5),
                     ),
                     ft.Divider(color=theme.SECONDARY_TEXT),
 
+                    # Language Section
+                    ft.Text("Idioma / Language", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
+                    self.language_dropdown,
+                    ft.Divider(color=theme.SECONDARY_TEXT),
+
                     # Music Path Configuration Section
-                    ft.Text("Carpeta de Música", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
+                    self.music_folder_text,
                     ft.Container(
                         content=ft.Column([
-                            ft.Text("Ruta actual:", size=14, color=theme.PRIMARY_TEXT),
+                            self.current_path_label,
                             self.music_path_text,
                             ft.Row([
-                                ft.ElevatedButton(
-                                    "Cambiar Carpeta",
-                                    icon=ft.Icons.FOLDER_OPEN,
-                                    on_click=lambda _: self.folder_picker.get_directory_path(
-                                        dialog_title="Seleccionar carpeta de música"
-                                    ),
-                                    bgcolor=theme.ACCENT_COLOR,
-                                    color=ft.Colors.WHITE,
-                                ),
-                                ft.TextButton(
-                                    "Restaurar",
-                                    icon=ft.Icons.RESTORE,
-                                    on_click=self.reset_music_path,
-                                ),
+                                self.change_folder_btn,
+                                self.restore_btn,
                             ], spacing=10),
                         ], spacing=10),
                         padding=ft.padding.only(top=5),
@@ -86,29 +128,47 @@ class SettingsView(ft.View):
                     ft.Container(
                         content=ft.Row([
                             ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=theme.SECONDARY_TEXT),
-                            ft.Text(
-                                "Esta carpeta se usará para guardar las descargas\ny para buscar música local.",
-                                size=12,
-                                color=theme.SECONDARY_TEXT,
-                            ),
+                            self.folder_note_text,
                         ], spacing=8),
                         padding=ft.padding.only(top=5),
                     ),
                     ft.Divider(color=theme.SECONDARY_TEXT),
 
-                    ft.Text("Sesión", size=18, weight=ft.FontWeight.BOLD, color=theme.PRIMARY_TEXT),
-                    ft.ElevatedButton(
-                        "Cerrar Sesión", 
-                        on_click=self.logout,
-                        bgcolor=theme.ERROR_COLOR,
-                        color=ft.Colors.WHITE
-                    ),
+                    self.session_text,
+                    self.logout_btn,
 
                 ], spacing=20),
                 padding=ft.padding.only(left=20, top=20, right=20, bottom=100),
                 expand=True
             )
         ]
+        
+        # Subscribe to language changes
+        if self.translator:
+            self.translator.subscribe(self.on_language_change)
+    
+    def on_language_change(self, language_code):
+        """Update UI when language changes"""
+        if not self.translator:
+            return
+        
+        # Update all text elements using the stored references
+        self.format_dropdown.label = self.translator.t("settings.download_format")
+        self.title_text.value = self.translator.t("settings.title")
+        self.downloads_text.value = self.translator.t("settings.downloads")
+        self.format_note_text.value = self.translator.t("settings.format_note")
+        self.music_folder_text.value = self.translator.t("settings.music_folder")
+        self.current_path_label.value = self.translator.t("settings.current_path")
+        self.change_folder_btn.text = self.translator.t("settings.button_change")
+        self.restore_btn.text = self.translator.t("settings.button_restore")
+        self.folder_note_text.value = self.translator.t("settings.folder_note")
+        self.session_text.value = self.translator.t("settings.session")
+        self.logout_btn.text = self.translator.t("settings.button_logout")
+        
+        try:
+            self.update()
+        except:
+            pass
         
     def did_mount(self):
         # Add FilePicker to overlay
@@ -125,6 +185,11 @@ class SettingsView(ft.View):
         saved_path = await self.page.client_storage.get_async("music_folder_path")
         if saved_path:
             self.music_path_text.value = saved_path
+        
+        # Load saved language
+        saved_language = await self.page.client_storage.get_async("app_language")
+        if saved_language in AVAILABLE_LANGUAGES:
+            self.language_dropdown.value = saved_language
         
         self.update()
 
@@ -157,6 +222,16 @@ class SettingsView(ft.View):
         await self.page.client_storage.set_async("download_format", music_format)
         await self.page.client_storage.set_async("download_quality", self.format_mapper.get(music_format, "FLAC"))
         print(f"Download format saved: {self.format_mapper.get(music_format, 'FLAC')}")
+    
+    async def save_language_preference(self, e):
+        language = self.language_dropdown.value
+        await self.page.client_storage.set_async("app_language", language)
+        
+        # Update translator language
+        if self.app_state.get("translator"):
+            self.app_state["translator"].set_language(language)
+        
+        print(f"Language saved: {language}")
 
     async def logout(self, e):
         # Stop player and clear playlist

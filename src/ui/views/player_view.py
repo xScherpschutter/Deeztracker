@@ -4,8 +4,9 @@ import asyncio
 
 class PlayerView(ft.View):
     def __init__(self, app_state):
-        super().__init__(route="/player", bgcolor=theme.BG_COLOR, padding=20)
+        super().__init__(route="/player", bgcolor=theme.BG_COLOR)
         self.app_state = app_state
+        self.translator = app_state.get("translator")
         self.player_manager = app_state["player_manager"]
         self.user_seeking = False  # Flag to prevent position updates while seeking
         
@@ -22,16 +23,16 @@ class PlayerView(ft.View):
         )
         
         self.track_title = ft.Text(
-            "Desconocido",
-            size=24,
+            self.translator.t("player.unknown_title") if self.translator else "Unknown",
+            size=20,
             weight=ft.FontWeight.BOLD,
+            color=theme.PRIMARY_TEXT,
             text_align=ft.TextAlign.CENTER,
-            max_lines=1,
-            overflow=ft.TextOverflow.ELLIPSIS
+            max_lines=2
         )
         
         self.artist_name = ft.Text(
-            "Desconocido",
+            self.translator.t("player.unknown_artist") if self.translator else "Unknown",
             size=18,
             color=theme.SECONDARY_TEXT,
             text_align=ft.TextAlign.CENTER,
@@ -145,14 +146,14 @@ class PlayerView(ft.View):
     def did_mount(self):
         # Register callbacks
         self.player_manager.subscribe(
-            on_track_change=self.update_track_info,
+            on_track_change=self.on_track_change,
             on_state_change=self.update_play_state,
             on_position_change=self.update_position,
             on_volume_change=self.update_volume
         )
         
         # Load current state
-        self.update_track_info(self.player_manager.playlist[self.player_manager.current_index] if self.player_manager.playlist else {})
+        self.on_track_change(self.player_manager.playlist[self.player_manager.current_index] if self.player_manager.playlist else {})
         self.update_play_state(self.player_manager.is_playing)
         
         # Sync shuffle/repeat state
@@ -162,15 +163,15 @@ class PlayerView(ft.View):
 
     def will_unmount(self):
         self.player_manager.unsubscribe(
-            on_track_change=self.update_track_info,
+            on_track_change=self.on_track_change,
             on_state_change=self.update_play_state,
             on_position_change=self.update_position,
             on_volume_change=self.update_volume
         )
 
-    def update_track_info(self, track):
-        self.track_title.value = track.get('title', 'Desconocido')
-        self.artist_name.value = track.get('artist', 'Desconocido')
+    def on_track_change(self, track):
+        self.track_title.value = track.get('title', self.translator.t("player.unknown_title") if self.translator else "Unknown")
+        self.artist_name.value = track.get('artist', self.translator.t("player.unknown_artist") if self.translator else "Unknown")
         
         # Use cover if exists and not empty, otherwise placeholder
         cover = track.get('cover', '')
