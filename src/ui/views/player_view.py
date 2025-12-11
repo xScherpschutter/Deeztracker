@@ -110,11 +110,15 @@ class PlayerView(ft.View):
                     ft.Column(
                         [
                             self.position_slider,
-                            ft.Row(
-                                [self.position_text, self.duration_text],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                            ft.Container(
+                                content=ft.Row(
+                                    [self.position_text, self.duration_text],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                ),
+                                padding=ft.padding.symmetric(horizontal=20),
                             )
-                        ]
+                        ],
+                        spacing=0,
                     ),
                     ft.Container(height=10),
                     ft.Row(
