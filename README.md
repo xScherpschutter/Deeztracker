@@ -1,6 +1,41 @@
+<div align="center">
+  <img src="assets/icon_windows.png" alt="Deeztracker Logo" width="200"/>
+</div>
+
 # Deeztracker
 
-Deeztracker app.
+A cross-platform desktop music player application that integrates with Deezer's streaming service. Built with Python and Flet, Deeztracker provides a native desktop experience for streaming and managing your Deezer music library with features like local music integration, custom playlists, and rich media controls.
+
+## Getting Started
+
+### Obtaining Your Deezer ARL Token
+
+To use Deeztracker, you need to obtain your Deezer ARL (Authentication Resource Locator) token from your browser cookies:
+
+1. **Log in to Deezer**
+   - Open your web browser and go to [deezer.com](https://www.deezer.com)
+   - Sign in with your Deezer account
+
+2. **Open Browser Developer Tools**
+   - **Chrome/Edge**: Press `F12` or `Ctrl+Shift+I` (Windows/Linux) / `Cmd+Option+I` (Mac)
+   - **Firefox**: Press `F12` or `Ctrl+Shift+I` (Windows/Linux) / `Cmd+Option+I` (Mac)
+
+3. **Navigate to Cookies**
+   - In the Developer Tools, click on the **Application** tab (Chrome/Edge) or **Storage** tab (Firefox)
+   - In the left sidebar, expand **Cookies**
+   - Click on `https://www.deezer.com`
+
+4. **Find the ARL Cookie**
+   - Look for a cookie named `arl` in the list
+   - Click on it to view its value
+   - Copy the entire value (it should be a long string of characters)
+
+5. **Use the ARL in Deeztracker**
+   - When you first launch Deeztracker, you'll be prompted to enter your ARL token
+   - Paste the ARL value you copied from the cookies
+   - Click "Login" to authenticate
+
+> **Note**: Keep your ARL token private and secure. It provides access to your Deezer account.
 
 ## Packaging
 
