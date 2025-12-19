@@ -113,18 +113,21 @@ class AlbumView(ft.View):
         downloader = self.app_state["downloader"]
         album_title = self.album_data.title # Get album title from stored data
 
-        self.snackbar.content = ft.Text(f"Iniciando descarga de álbum '{album_title}'...")
+        start_msg = self.translator.t("album.download_started", title=album_title) if self.translator else f"Starting download of album '{album_title}'..."
+        self.snackbar.content = ft.Text(start_msg)
         self.page.open(self.snackbar)
         try:
             album_url = f"https://www.deezer.com/album/{self.album_data.id}"
             download_format = await self.page.client_storage.get_async("download_format")
             await downloader.download_album(album_url, convert_to=download_format)
-            self.snackbar.content = ft.Text(f"Álbum '{album_title}' descargado con éxito!")
+            success_msg = self.translator.t("album.download_success", title=album_title) if self.translator else f"Album '{album_title}' downloaded successfully!"
+            self.snackbar.content = ft.Text(success_msg)
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             self.page.open(self.snackbar)
         except Exception as ex:
             print(f"Error downloading album {album_title}: {ex}")
-            self.snackbar.content = ft.Text(f"Error downloading album '{album_title}': {ex}")
+            error_msg = self.translator.t("album.error_download_album", title=album_title, error=str(ex)) if self.translator else f"Error downloading album '{album_title}': {ex}"
+            self.snackbar.content = ft.Text(error_msg)
             self.snackbar.bgcolor = theme.ERROR_COLOR
             self.page.open(self.snackbar)
 
@@ -132,20 +135,23 @@ class AlbumView(ft.View):
         downloader = self.app_state["downloader"]
         item_title = data.title_short if not is_album else data.title
         
-        self.snackbar.content = ft.Text(f"Iniciando descarga de '{item_title}'...")
+        start_msg = self.translator.t("album.download_track_started", title=item_title) if self.translator else f"Starting download of '{item_title}'..."
+        self.snackbar.content = ft.Text(start_msg)
         page.open(self.snackbar)
         try:
             download_format = await page.client_storage.get_async("download_format")
             download_quality = await page.client_storage.get_async("download_quality")
             print(download_quality)
             await downloader.download_track(data.link, quality_download=download_quality, convert_to=download_format)
-            self.snackbar.content = ft.Text(f"'{item_title}' descargado con éxito!")
+            success_msg = self.translator.t("album.download_track_success", title=item_title) if self.translator else f"'{item_title}' downloaded successfully!"
+            self.snackbar.content = ft.Text(success_msg)
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)
             
         except Exception as e:
             print(f"Error loading {item_title}: {e}")
-            self.snackbar.content = ft.Text(f"Error downloading '{item_title}': {e}")
+            error_msg = self.translator.t("album.error_download_track", title=item_title, error=str(e)) if self.translator else f"Error downloading '{item_title}': {e}"
+            self.snackbar.content = ft.Text(error_msg)
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self.snackbar)
     

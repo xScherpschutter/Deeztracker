@@ -178,20 +178,23 @@ class SearchView(ft.View):
 
     async def download_track(self, page: ft.Page, track_data):
         downloader = self.app_state["downloader"]
-        self.snackbar.content = ft.Text(f"Iniciando descarga de '{track_data.title}'...")
-        page.open(ft.SnackBar(ft.Text(f"Iniciando descarga de '{track_data.title}'...")))   
+        start_msg = self.translator.t("search.download_started", title=track_data.title) if self.translator else f"Starting download of '{track_data.title}'..."
+        self.snackbar.content = ft.Text(start_msg)
+        page.open(ft.SnackBar(ft.Text(start_msg)))   
 
         try:
             download_format = await page.client_storage.get_async("download_format")
             download_quality = await page.client_storage.get_async("download_quality")
             await downloader.download_track(track_data.link, convert_to=download_format, quality_download=download_quality)
-            self.snackbar.content = ft.Text(f"'{track_data.title}' descargado con éxito!")
+            success_msg = self.translator.t("search.download_success", title=track_data.title) if self.translator else f"'{track_data.title}' downloaded successfully!"
+            self.snackbar.content = ft.Text(success_msg)
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)
             
         except Exception as e:
             print(f"Error downloading {track_data.title}: {e}")
-            self.snackbar.content = ft.Text(f"Error downloading '{track_data.title}': {e}")
+            error_msg = self.translator.t("search.error_download", title=track_data.title, error=str(e)) if self.translator else f"Error downloading '{track_data.title}': {e}"
+            self.snackbar.content = ft.Text(error_msg)
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self.snackbar)
 

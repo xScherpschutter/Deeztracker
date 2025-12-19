@@ -114,17 +114,20 @@ class PlaylistView(ft.View):
         downloader = self.app_state["downloader"]
         playlist_title = self.playlist_data.title
 
-        self.snackbar.content = ft.Text(f"Iniciando descarga de playlist '{playlist_title}'...")
+        start_msg = self.translator.t("playlist.download_started", title=playlist_title) if self.translator else f"Starting download of playlist '{playlist_title}'..."
+        self.snackbar.content = ft.Text(start_msg)
         self.page.open(self.snackbar)
         try:
             download_format = await self.page.client_storage.get_async("download_format")
             await downloader.download_playlist(self.playlist_data.link, convert_to=download_format)
-            self.snackbar.content = ft.Text(f"Playlist '{playlist_title}' descargada con éxito!")
+            success_msg = self.translator.t("playlist.download_success", title=playlist_title) if self.translator else f"Playlist '{playlist_title}' downloaded successfully!"
+            self.snackbar.content = ft.Text(success_msg)
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             self.page.open(self.snackbar)
         except Exception as ex:
             print(f"Error downloading playlist {playlist_title}: {ex}")
-            self.snackbar.content = ft.Text(f"Error downloading playlist '{playlist_title}': {ex}")
+            error_msg = self.translator.t("playlist.error_download_playlist", title=playlist_title, error=str(ex)) if self.translator else f"Error downloading playlist '{playlist_title}': {ex}"
+            self.snackbar.content = ft.Text(error_msg)
             self.snackbar.bgcolor = theme.ERROR_COLOR
             self.page.open(self.snackbar)
 
@@ -132,19 +135,22 @@ class PlaylistView(ft.View):
         downloader = self.app_state["downloader"]
         item_title = data.title_short
         
-        self.snackbar.content = ft.Text(f"Iniciando descarga de '{item_title}'...")
+        start_msg = self.translator.t("playlist.download_track_started", title=item_title) if self.translator else f"Starting download of '{item_title}'..."
+        self.snackbar.content = ft.Text(start_msg)
         page.open(self.snackbar)
         try:
             download_format = await page.client_storage.get_async("download_format")
             download_quality = await page.client_storage.get_async("download_quality")
             await downloader.download_track(data.link, convert_to=download_format, quality_download=download_quality)
-            self.snackbar.content = ft.Text(f"'{item_title}' descargado con éxito!")
+            success_msg = self.translator.t("playlist.download_track_success", title=item_title) if self.translator else f"'{item_title}' downloaded successfully!"
+            self.snackbar.content = ft.Text(success_msg)
             self.snackbar.bgcolor = theme.SUCCESS_COLOR
             page.open(self.snackbar)
             
         except Exception as e:
             print(f"Error downloading {item_title}: {e}")
-            self.snackbar.content = ft.Text(f"Error downloading '{item_title}': {e}")
+            error_msg = self.translator.t("playlist.error_download_track", title=item_title, error=str(e)) if self.translator else f"Error downloading '{item_title}': {e}"
+            self.snackbar.content = ft.Text(error_msg)
             self.snackbar.bgcolor = theme.ERROR_COLOR
             page.open(self.snackbar)
     
