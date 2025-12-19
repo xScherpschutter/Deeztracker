@@ -10,6 +10,8 @@ dependencies = [
     "httpx",
     "mutagen",
     "python-vlc",
+    "pillow",
+    "pyinstaller",
     "winsdk>=1.0.0b10; sys_platform == 'win32'",
     "dbus-python>=1.4.0; sys_platform == 'linux'",
     "PyGObject>=3.42.0; sys_platform == 'linux'",
