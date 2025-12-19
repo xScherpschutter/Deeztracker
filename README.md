@@ -6,6 +6,29 @@
 
 A cross-platform desktop music player application that integrates with Deezer's streaming service. Built with Python and Flet, Deeztracker provides a native desktop experience for streaming and managing your Deezer music library with features like local music integration, custom playlists, and rich media controls.
 
+## Screenshots
+
+<div align="center">
+  <img src="preview/screen-1.png" alt="Login Screen" width="45%"/>
+  <img src="preview/screen-2.png" alt="Search View" width="45%"/>
+</div>
+
+<div align="center">
+  <img src="preview/screen-3.png" alt="Artist View" width="45%"/>
+  <img src="preview/screen-4.png" alt="Album View" width="45%"/>
+</div>
+
+<div align="center">
+  <img src="preview/screen-5.png" alt="Playlist View" width="45%"/>
+  <img src="preview/screen-6.png" alt="Local Music" width="45%"/>
+</div>
+
+<div align="center">
+  <img src="preview/screen-7.png" alt="Player View" width="45%"/>
+  <img src="preview/screen-8.png" alt="Settings" width="45%"/>
+</div>
+
+
 ## Getting Started
 
 ### Obtaining Your Deezer ARL Token
