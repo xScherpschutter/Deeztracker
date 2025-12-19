@@ -8,6 +8,7 @@ dependencies = [
     "deezspot-spotizerr",
     "flet",
     "flet-cli",
+    "flet-desktop",
     "httpx",
     "mutagen",
     "python-vlc",
