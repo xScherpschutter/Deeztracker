@@ -29,9 +29,8 @@ class DeezloaderService:
                 convert_to=c_to,
                 recursive_quality=self.recursive_quality
             )
-            print(f"Descarga de pista completada: {track_url}")
         except Exception as e:
-            print(f"Ocurrió un error en la descarga de la pista: {e}")
+            raise Exception(f"Error downloading track: {e}")
     
     async def download_album(self, album_url: str | HttpUrl, quality_download: str = None, convert_to: str = None) -> None:
         """Asynchronously downloads an album, executing the synchronous call in a thread."""
@@ -49,9 +48,8 @@ class DeezloaderService:
                 recursive_quality=self.recursive_quality,
                 make_zip=False
             )
-            print(f"Descarga de álbum completada: {album_url}")
         except Exception as e:
-            print(f"Ocurrió un error en la descarga del álbum: {e}")
+            raise Exception(f"Error downloading album: {e}")
     
     async def download_playlist(self, playlist_url: str | HttpUrl, quality_download: str = None, convert_to: str = None) -> None:
         """Asynchronously downloads a playlist, executing the synchronous call in a thread."""
@@ -68,6 +66,5 @@ class DeezloaderService:
                 convert_to=c_to,
                 recursive_quality=self.recursive_quality,
             )
-            print(f"Descarga de playlist completada: {playlist_url}")
         except Exception as e:
-            print(f"Ocurrió un error en la descarga de la playlist: {e}")
+            raise Exception(f"Error downloading playlist: {e}")
