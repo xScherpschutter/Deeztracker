@@ -1,4 +1,5 @@
 import flet as ft
+import os
 from features.api.service import DeezerAPIService
 from features.downloader.service import DeezloaderService
 from features.downloader.utils import get_custom_music_folder
@@ -32,6 +33,9 @@ async def main(page: ft.Page):
     page.window_resizable = True
     page.window_min_width = 400
     page.window_min_height = 600
+    
+    # Set window icon
+    page.window.icon = "icon_windows.png"
     
     import platform
     # Hide native title bar and use custom one, unless on Linux where we need it for resizing

@@ -109,7 +109,7 @@ class CustomTitleBar(ft.WindowDragArea):
             content=ft.Row(
                 [
                     ft.Container(width=10),  # Left padding
-                    ft.Icon(ft.Icons.MUSIC_NOTE, color=theme.ACCENT_COLOR, size=20),
+                    ft.Image(src="icon_windows.png", width=20, height=20, fit=ft.ImageFit.CONTAIN),
                     ft.Container(width=8),
                     ft.Text(
                         "Deeztracker",

@@ -18,4 +18,4 @@ if platform.system() == 'Linux':
 from ui.app import main as ui_main
 
 if __name__ == "__main__":
-    ft.app(target=ui_main)
+    ft.app(target=ui_main, name="Deeztracker", assets_dir="assets")
