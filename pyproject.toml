@@ -22,7 +22,7 @@ dependencies = [
 [tool.flet]
 app.path = "src"
 app.module = "main" 
-app.assets = ["assets"]
+app.assets = ["src/assets"]
 product = "Deeztracker" 
 company = "Deeztracker" 
 copyright = "Copyright (c) 2025"
