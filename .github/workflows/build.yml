@@ -90,6 +90,7 @@ jobs:
           --add-binary "C:\Program Files\VideoLAN\VLC\libvlc.dll;." `
           --add-binary "C:\Program Files\VideoLAN\VLC\libvlccore.dll;." `
           --add-data "C:\Program Files\VideoLAN\VLC\plugins;plugins" `
+          --add-data "src/assets;assets" `
           -n "Deeztracker" `
           -y
     
