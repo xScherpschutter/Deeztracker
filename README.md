@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/icon_windows.png" alt="Deeztracker Logo" width="200"/>
+  <img src="src/assets/icon_windows.png" alt="Deeztracker Logo" width="200"/>
 </div>
 
 # Deeztracker
