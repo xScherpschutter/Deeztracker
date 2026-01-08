@@ -86,7 +86,7 @@ jobs:
     - name: Build Windows package
       run: |
         uv run flet pack src/main.py `
-          -i assets/icon_windows.png `
+          -i src/assets/icon_windows.png `
           --name "Deeztracker" `
           --product-name "Deeztracker" `
           --file-version "0.0.0.1" `
