@@ -1,0 +1,56 @@
+[package]
+name = "deeztracker-streaming"
+version = "0.1.0"
+description = "Deeztracker Streaming"
+authors = ["xScherpschutter"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "tauri_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client with cookie support
+reqwest = { version = "0.12", features = ["json", "cookies", "stream"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+thiserror = "2"
+
+# Cryptography
+md-5 = "0.10"
+sha1 = "0.10"
+blowfish = "0.9"
+aes = "0.8"
+ctr = "0.9"
+hex = "0.4"
+cipher = "0.4"
+byteorder = "1.5"
+
+# Logging
+tracing = "0.1"
+
+# Audio metadata tagging
+lofty = "0.22"
+clap = { version = "4.4", features = ["derive", "env"] }
+futures-util = "0.3.32"
+bytes = "1.11.1"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
