@@ -1,3 +1,7 @@
+---
+name: ts-best-practices
+description: Core principles for advanced TypeScript engineering, type safety, and Vue 3 integrations.
+---
 # Skill: TypeScript Advanced Engineering
 
 ## Core Principle
