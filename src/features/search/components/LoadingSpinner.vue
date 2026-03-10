@@ -15,7 +15,7 @@ const sizeClasses = {
 </script>
 
 <template>
-  <div class="flex-1 flex items-center justify-center min-h-[200px]">
+  <div class="flex-1 flex items-center justify-center h-full min-h-[200px]">
     <div 
       class="border-primary/20 border-t-primary rounded-full animate-spin"
       :class="sizeClasses[size]"
