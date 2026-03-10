@@ -81,7 +81,7 @@ onMounted(async () => {
             <span class="text-textGray">•</span>
             <span class="text-textGray">{{ album.release_date.year }}</span>
             <span class="text-textGray">•</span>
-            <span class="text-textGray">{{ album.total_tracks }} {{ t('search.track_count', album.total_tracks) }}</span>
+            <span class="text-textGray">{{ t('search.track_count', album.total_tracks) }}</span>
           </div>
         </div>
       </div>

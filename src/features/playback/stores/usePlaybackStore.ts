@@ -35,6 +35,7 @@ export const usePlaybackStore = defineStore('playback', {
 
   actions: {
     async playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {
+      this.resetProgress();
       // Set the queue based on context
       if (context) {
         this.queue = context.items;
@@ -95,6 +96,7 @@ export const usePlaybackStore = defineStore('playback', {
     },
 
     next() {
+      this.resetProgress();
       if (this.repeatMode === 'one') {
         this.seek(0);
         this.startPlayback();
@@ -128,6 +130,7 @@ export const usePlaybackStore = defineStore('playback', {
         return;
       }
 
+      this.resetProgress();
       if (this.isShuffle) {
         const currentShufflePos = this.shuffledIndices.indexOf(this.currentIndex);
         if (currentShufflePos > 0) {
@@ -166,6 +169,11 @@ export const usePlaybackStore = defineStore('playback', {
       const modes: ('off' | 'all' | 'one')[] = ['off', 'all', 'one'];
       const nextIndex = (modes.indexOf(this.repeatMode) + 1) % modes.length;
       this.repeatMode = modes[nextIndex];
+    },
+
+    resetProgress() {
+      this.progress = 0;
+      this.duration = 0;
     },
 
     onTrackEnd() {

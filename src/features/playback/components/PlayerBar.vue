@@ -92,6 +92,9 @@ const onVolumeChange = (e: Event) => {
           step="0.1"
           @input="onSeek"
           class="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary group-hover:h-1.5 transition-all"
+          :style="{
+            background: `linear-gradient(to right, #00AAFF ${ (playbackStore.progress / (playbackStore.duration || 1)) * 100 }%, rgba(255, 255, 255, 0.1) 0)`
+          }"
         >
         <span class="text-[10px] text-textGray w-8 font-mono">{{ formatDuration(playbackStore.duration * 1000) }}</span>
       </div>
@@ -99,7 +102,7 @@ const onVolumeChange = (e: Event) => {
 
     <!-- Volume & Others -->
     <div class="w-1/3 flex justify-end items-center gap-4">
-      <div class="flex items-center gap-2 w-32">
+      <div class="flex items-center gap-2 w-32 group/vol">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-textGray"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
         <input 
           type="range" 
@@ -108,7 +111,10 @@ const onVolumeChange = (e: Event) => {
           step="0.01" 
           :value="playbackStore.volume" 
           @input="onVolumeChange"
-          class="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary hover:h-1.5 transition-all"
+          class="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white hover:h-1.5 transition-all"
+          :style="{
+            background: `linear-gradient(to right, white ${ playbackStore.volume * 100 }%, rgba(255, 255, 255, 0.1) 0)`
+          }"
         >
       </div>
     </div>
