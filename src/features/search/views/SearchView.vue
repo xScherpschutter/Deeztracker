@@ -113,7 +113,7 @@ onUnmounted(() => {
                 class="group flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
-                <div class="relative w-12 h-12 flex-shrink-0" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
+                <div class="relative w-12 h-12 flex-shrink-0">
                   <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded-md shadow-lg" />
                   <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md transition-opacity">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
