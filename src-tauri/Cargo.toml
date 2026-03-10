@@ -36,6 +36,9 @@ tokio = { version = "1", features = ["full"] }
 # Internal HTTP Server for Streaming
 tiny_http = "0.12"
 
+# Utilities
+rand = "0.8"
+
 # Error handling
 thiserror = "2"
 
