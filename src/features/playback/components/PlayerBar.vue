@@ -1,12 +1,24 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { formatDuration } from '../../search/utils/time';
 
 const playbackStore = usePlaybackStore();
+const isSeeking = ref(false);
+const seekValue = ref(0);
 
-const onSeek = (e: Event) => {
-  const value = (e.target as HTMLInputElement).value;
-  playbackStore.seek(parseFloat(value));
+const onSeekInput = (e: Event) => {
+  isSeeking.value = true;
+  seekValue.value = parseFloat((e.target as HTMLInputElement).value);
+};
+
+const onSeekChange = (e: Event) => {
+  const value = parseFloat((e.target as HTMLInputElement).value);
+  playbackStore.seek(value);
+  // Important: Keep isSeeking true for a moment to let the browser catch up
+  setTimeout(() => {
+    isSeeking.value = false;
+  }, 500);
 };
 
 const onVolumeChange = (e: Event) => {
@@ -84,16 +96,19 @@ const onVolumeChange = (e: Event) => {
 
       <!-- Progress Bar -->
       <div class="w-full flex items-center gap-2 group">
-        <span class="text-[10px] text-textGray w-8 text-right font-mono">{{ formatDuration(playbackStore.progress * 1000) }}</span>
+        <span class="text-[10px] text-textGray w-8 text-right font-mono">{{ formatDuration((isSeeking ? seekValue : playbackStore.progress) * 1000) }}</span>
         <input 
           type="range" 
-          :value="playbackStore.progress" 
+          :value="isSeeking ? seekValue : playbackStore.progress" 
           :max="playbackStore.duration || 0" 
           step="0.1"
-          @input="onSeek"
-          class="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary group-hover:h-1.5 transition-all"
+          :disabled="playbackStore.isBuffering"
+          @input="onSeekInput"
+          @change="onSeekChange"
+          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all"
+          :class="playbackStore.isBuffering ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'"
           :style="{
-            background: `linear-gradient(to right, #00AAFF ${ (playbackStore.progress / (playbackStore.duration || 1)) * 100 }%, rgba(255, 255, 255, 0.1) 0)`
+            background: `linear-gradient(to right, #00AAFF ${ ((isSeeking ? seekValue : playbackStore.progress) / (playbackStore.duration || 1)) * 100 }%, rgba(255, 255, 255, 0.1) 0)`
           }"
         >
         <span class="text-[10px] text-textGray w-8 font-mono">{{ formatDuration(playbackStore.duration * 1000) }}</span>

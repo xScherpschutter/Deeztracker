@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import type { Track, Album, Playlist } from '../../search/models/search';
+import type { Track } from '../../search/models/search';
 import { PlaybackService } from '../services/playbackService';
 import { SearchService } from '../../search/services/searchService';
 
@@ -8,6 +8,7 @@ export const usePlaybackStore = defineStore('playback', {
     queue: [] as Track[],
     currentIndex: -1,
     isPlaying: false,
+    isBuffering: false,
     volume: 0.8,
     progress: 0,
     duration: 0,
@@ -60,12 +61,13 @@ export const usePlaybackStore = defineStore('playback', {
 
       // Set duration from metadata immediately (in seconds)
       this.duration = track.duration_ms / 1000;
+      this.isBuffering = true;
 
       const service = PlaybackService.getInstance();
       await service.play(
         track,
         () => this.onTrackEnd(),
-        () => this.isPlaying = true,
+        () => { this.isPlaying = true; },
         () => this.isPlaying = false,
         (progress, browserDuration) => {
           this.progress = progress;
@@ -73,7 +75,8 @@ export const usePlaybackStore = defineStore('playback', {
           if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
             this.duration = browserDuration;
           }
-        }
+        },
+        () => { this.isBuffering = false; },
       );
     },
 
@@ -149,6 +152,7 @@ export const usePlaybackStore = defineStore('playback', {
     },
 
     seek(seconds: number) {
+      if (this.isBuffering) return;
       PlaybackService.getInstance().seek(seconds);
       this.progress = seconds;
     },
@@ -189,14 +193,14 @@ export const usePlaybackStore = defineStore('playback', {
       try {
         const relatedTracks = await SearchService.getTrackRadio(trackId);
         console.log('Received related tracks:', relatedTracks.length);
-        
+
         // Filter out tracks already in queue
         const newTracks = relatedTracks.filter(rt => !this.queue.some(q => q.ids.deezer === rt.ids.deezer));
         this.queue.push(...newTracks);
         console.log('New queue length:', this.queue.length);
-        
+
         if (this.isShuffle) {
-            this.generateShuffledIndices();
+          this.generateShuffledIndices();
         }
       } catch (e) {
         // Silent error: Radio endpoint might be restricted or non-existent
@@ -211,7 +215,7 @@ export const usePlaybackStore = defineStore('playback', {
         [indices[i], indices[j]] = [indices[j], indices[i]];
       }
       this.shuffledIndices = indices;
-      
+
     }
   }
 });

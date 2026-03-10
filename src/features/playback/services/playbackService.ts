@@ -1,14 +1,15 @@
-import { Howl } from 'howler';
 import { invoke } from '@tauri-apps/api/core';
 import type { Track } from '../../search/models/search';
 
 export class PlaybackService {
   private static instance: PlaybackService;
-  private howl: Howl | null = null;
+  private audio: HTMLAudioElement | null = null;
   private currentTrackId: string | null = null;
   private baseUrl: string | null = null;
+  private animationFrameId: number | null = null;
+  private isSeeking = false;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): PlaybackService {
     if (!PlaybackService.instance) {
@@ -24,82 +25,142 @@ export class PlaybackService {
     return this.baseUrl;
   }
 
-  async play(track: Track, onEnd: () => void, onPlay: () => void, onPause: () => void, onProgress: (progress: number, duration: number) => void) {
-    if (this.currentTrackId === track.ids.deezer && this.howl) {
-      this.howl.play();
+  async play(
+    track: Track,
+    onEnd: () => void,
+    onPlay: () => void,
+    onPause: () => void,
+    onProgress: (progress: number, duration: number) => void,
+    onReady?: () => void,
+  ) {
+    // Resume if same track
+    if (this.currentTrackId === track.ids.deezer && this.audio) {
+      this.safePlay(this.audio);
       return;
     }
 
-    if (this.howl) {
-      this.howl.stop();
-      this.howl.unload();
-    }
+    // Clean up previous audio
+    this.cleanup();
 
     this.currentTrackId = track.ids.deezer || null;
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}/stream/${track.ids.deezer}`;
 
-    this.howl = new Howl({
-      src: [url],
-      format: ['mp3', 'flac'],
-      html5: true, // Use native audio element now that server supports content-length
-      onplay: () => {
-        onPlay();
-        this.updateMediaMetadata(track);
-        this.startProgressTimer(onProgress);
-      },
-      onpause: () => {
-        onPause();
-        this.updatePlaybackState(false);
-      },
-      onend: () => {
-        onEnd();
-      },
-      onloaderror: (id, error) => {
-        console.error('Playback load error:', error);
-      }
+    const audio = new Audio(url);
+    this.audio = audio;
+
+    // Event listeners
+    audio.addEventListener('play', () => {
+      onPlay();
+      this.updateMediaMetadata(track);
+      this.startProgressTimer(onProgress);
     });
 
-    this.howl.play();
+    // canplay: browser has enough data buffered to actually play and seek
+    audio.addEventListener('canplay', () => {
+      onReady?.();
+    }, { once: true });
+
+    audio.addEventListener('pause', () => {
+      // Ignore pause events triggered by the browser during seeking
+      if (this.isSeeking) return;
+      onPause();
+      this.stopProgressTimer();
+      this.updatePlaybackState(false);
+    });
+
+    audio.addEventListener('seeking', () => {
+      this.isSeeking = true;
+    });
+
+    audio.addEventListener('seeked', () => {
+      this.isSeeking = false;
+      // Auto-resume playback after seek completes
+      if (audio.paused && this.currentTrackId) {
+        this.safePlay(audio);
+      }
+      this.startProgressTimer(onProgress);
+    });
+
+    audio.addEventListener('ended', () => {
+      this.stopProgressTimer();
+      onEnd();
+    });
+
+    audio.addEventListener('error', (e) => {
+      console.error('Playback error:', e);
+    });
+
+    this.safePlay(audio);
   }
 
   pause() {
-    this.howl?.pause();
+    this.audio?.pause();
   }
 
   stop() {
-    this.howl?.stop();
+    this.cleanup();
   }
 
   seek(seconds: number) {
-    this.howl?.seek(seconds);
+    if (!this.audio) return;
+    this.audio.currentTime = seconds;
   }
 
   setVolume(volume: number) {
-    this.howl?.volume(volume);
+    if (this.audio) {
+      this.audio.volume = volume;
+    }
+  }
+
+  /** Play with AbortError handling (normal when play is interrupted by seek) */
+  private safePlay(audio: HTMLAudioElement) {
+    audio.play().catch((e) => {
+      if (e.name !== 'AbortError') {
+        console.error('Playback error:', e);
+      }
+    });
+  }
+
+  private cleanup() {
+    this.stopProgressTimer();
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.removeAttribute('src');
+      this.audio.load(); // Release resources
+      this.audio = null;
+    }
   }
 
   private startProgressTimer(onProgress: (progress: number, duration: number) => void) {
+    this.stopProgressTimer();
     const update = () => {
-      if (this.howl && this.howl.playing()) {
-        const seek = this.howl.seek() as number;
-        const duration = this.howl.duration();
-        onProgress(seek, duration);
-        this.updatePlaybackState(true, seek);
-        requestAnimationFrame(update);
+      if (this.audio && !this.audio.paused) {
+        const currentTime = this.audio.currentTime;
+        const duration = this.audio.duration || 0;
+        onProgress(currentTime, isFinite(duration) ? duration : 0);
+        this.updatePlaybackState(true, currentTime);
+        this.animationFrameId = requestAnimationFrame(update);
       }
     };
-    requestAnimationFrame(update);
+    this.animationFrameId = requestAnimationFrame(update);
+  }
+
+  private stopProgressTimer() {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
   }
 
   private async updateMediaMetadata(track: Track) {
     try {
       await invoke('update_media_metadata', {
         title: track.title,
-        artist: track.artists.map(a => a.name).join(', '),
+        artist: track.artists.map((a) => a.name).join(', '),
         album: track.album.title,
         coverUrl: track.album.images[track.album.images.length - 1]?.url,
-        durationMs: track.duration_ms
+        durationMs: track.duration_ms,
       });
     } catch (e) {
       console.error('Failed to update media metadata', e);
@@ -110,7 +171,7 @@ export class PlaybackService {
     try {
       await invoke('update_playback_state', {
         playing,
-        positionMs: positionSeconds ? Math.floor(positionSeconds * 1000) : undefined
+        positionMs: positionSeconds ? Math.floor(positionSeconds * 1000) : undefined,
       });
     } catch (e) {
       console.error('Failed to update playback state', e);
