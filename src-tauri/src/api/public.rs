@@ -427,11 +427,11 @@ impl DeezerApi {
     }
 
     /// Search for tracks.
-    pub async fn search_tracks(&self, query: &str, limit: u32) -> Result<Vec<Track>> {
+    pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> {
         let response = self
             .get_api_with_params(
                 "search/track",
-                &[("q", query), ("limit", &limit.to_string())],
+                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
             )
             .await?;
 
@@ -453,11 +453,11 @@ impl DeezerApi {
     }
 
     /// Search for albums.
-    pub async fn search_albums(&self, query: &str, limit: u32) -> Result<Vec<Album>> {
+    pub async fn search_albums(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Album>> {
         let response = self
             .get_api_with_params(
                 "search/album",
-                &[("q", query), ("limit", &limit.to_string())],
+                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
             )
             .await?;
 
@@ -478,12 +478,38 @@ impl DeezerApi {
             .pipe(Ok)
     }
 
+    /// Search for artists.
+    pub async fn search_artists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Artist>> {
+        let response = self
+            .get_api_with_params(
+                "search/artist",
+                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
+            )
+            .await?;
+
+        let total = response.get("total").and_then(|t| t.as_u64()).unwrap_or(0);
+        if total == 0 {
+            return Err(DeezerError::NoDataApi(query.to_string()));
+        }
+
+        let artists_data = response
+            .get("data")
+            .and_then(|d| d.as_array())
+            .ok_or_else(|| DeezerError::NoDataApi("No artists data".to_string()))?;
+
+        artists_data
+            .iter()
+            .filter_map(|a| converters::parse_artist(a).ok())
+            .collect::<Vec<_>>()
+            .pipe(Ok)
+    }
+
     /// Search for playlists.
-    pub async fn search_playlists(&self, query: &str, limit: u32) -> Result<Vec<Playlist>> {
+    pub async fn search_playlists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Playlist>> {
         let response = self
             .get_api_with_params(
                 "search/playlist",
-                &[("q", query), ("limit", &limit.to_string())],
+                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
             )
             .await?;
 

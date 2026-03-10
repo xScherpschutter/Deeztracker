@@ -76,6 +76,78 @@ async fn stream_track(
     Ok(())
 }
 
+#[tauri::command]
+async fn search_tracks(
+    query: String,
+    limit: u32,
+    index: u32,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Vec<Track>, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer
+        .search_tracks(&query, limit, index)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn search_albums(
+    query: String,
+    limit: u32,
+    index: u32,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Vec<Album>, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer
+        .search_albums(&query, limit, index)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn search_artists(
+    query: String,
+    limit: u32,
+    index: u32,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Vec<Artist>, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer
+        .search_artists(&query, limit, index)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn search_playlists(
+    query: String,
+    limit: u32,
+    index: u32,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Vec<Playlist>, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer
+        .search_playlists(&query, limit, index)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = RusteerState(Arc::new(Mutex::new(None)));
@@ -83,7 +155,16 @@ pub fn run() {
     tauri::Builder::default()
         .manage(app_state)
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![login, stream_track])
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_os::init())
+        .invoke_handler(tauri::generate_handler![
+            login,
+            stream_track,
+            search_tracks,
+            search_albums,
+            search_artists,
+            search_playlists
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

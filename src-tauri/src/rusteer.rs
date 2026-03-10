@@ -244,13 +244,23 @@ impl Rusteer {
     }
 
     /// Search for tracks.
-    pub async fn search_tracks(&self, query: &str, limit: u32) -> Result<Vec<Track>> {
-        self.public_api.search_tracks(query, limit).await
+    pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> {
+        self.public_api.search_tracks(query, limit, index).await
     }
 
     /// Search for albums.
-    pub async fn search_albums(&self, query: &str, limit: u32) -> Result<Vec<Album>> {
-        self.public_api.search_albums(query, limit).await
+    pub async fn search_albums(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Album>> {
+        self.public_api.search_albums(query, limit, index).await
+    }
+
+    /// Search for artists.
+    pub async fn search_artists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Artist>> {
+        self.public_api.search_artists(query, limit, index).await
+    }
+
+    /// Search for playlists.
+    pub async fn search_playlists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Playlist>> {
+        self.public_api.search_playlists(query, limit, index).await
     }
 
     // ==================
