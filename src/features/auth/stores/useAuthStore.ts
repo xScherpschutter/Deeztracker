@@ -7,6 +7,7 @@ const ARL_KEY = 'deeztracker_arl';
 export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = ref(false);
   const isAuthenticating = ref(false);
+  const isInitialized = ref(false);
   const authError = ref<string | null>(null);
 
   async function login(arl: string, save: boolean = true) {
@@ -39,15 +40,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function init() {
+    if (isInitialized.value) return;
+    
     const savedArl = localStorage.getItem(ARL_KEY);
     if (savedArl) {
       await login(savedArl, false);
     }
+    isInitialized.value = true;
   }
 
   return {
     isAuthenticated,
     isAuthenticating,
+    isInitialized,
     authError,
     login,
     logout,

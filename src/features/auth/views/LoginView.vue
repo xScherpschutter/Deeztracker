@@ -2,18 +2,23 @@
 import { ref } from 'vue';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
+const router = useRouter();
 const arlToken = ref('');
 
 async function handleLogin() {
   await authStore.login(arlToken.value);
+  if (authStore.isAuthenticated) {
+    router.push('/dashboard');
+  }
 }
 </script>
 
 <template>
-  <div class="h-[calc(100vh-2.5rem)] flex items-center justify-center bg-background text-textWhite p-6">
+  <div class="h-[calc(100vh-2.5rem)] flex items-center justify-center bg-background text-textWhite p-6 mt-10">
     <div class="max-w-md w-full bg-surface p-8 rounded-2xl shadow-xl border border-white/5">
       <div class="text-center mb-10">
         <h1 class="text-3xl font-bold text-primary tracking-tight mb-2">Deeztracker</h1>
