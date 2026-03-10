@@ -75,6 +75,8 @@ pub struct StreamingResult {
     pub title: String,
     /// Artist name.
     pub artist: String,
+    /// Content length in bytes.
+    pub content_length: u64,
     /// The stream reader to consume the decrypted audio bytes.
     pub stream: tokio::io::ReadHalf<tokio::io::DuplexStream>,
 }
@@ -85,6 +87,7 @@ impl std::fmt::Debug for StreamingResult {
             .field("quality", &self.quality)
             .field("title", &self.title)
             .field("artist", &self.artist)
+            .field("content_length", &self.content_length)
             .field("stream", &"<Opaque AsyncRead>")
             .finish()
     }
@@ -268,9 +271,48 @@ impl Rusteer {
         self.public_api.search_artists(query, limit, index).await
     }
 
-    /// Get tracks related to a track (radio).
+    /// Get tracks related to a track (radio mix).
+    /// This implementation finds related artists and mixes their top tracks
+    /// to provide a high-quality discovery experience with different artists.
     pub async fn get_track_radio(&self, track_id: &str) -> Result<Vec<Track>> {
-        self.public_api.get_track_radio(track_id).await
+        println!("DEBUG: Generating smart discovery mix for track {}", track_id);
+        
+        // 1. Get current track metadata to find the artist
+        let track = self.get_track(track_id).await?;
+        let primary_artist = match track.artists.first() {
+            Some(a) => a,
+            None => return Ok(Vec::new()),
+        };
+        let primary_artist_id = primary_artist.ids.deezer.as_ref().ok_or_else(|| DeezerError::NoDataApi("No artist ID".to_string()))?;
+
+        // 2. Get related artists
+        let related_artists = self.public_api.get_related_artists(primary_artist_id).await.unwrap_or_default();
+        
+        if related_artists.is_empty() {
+            println!("DEBUG: No related artists found, falling back to top tracks of primary artist");
+            return self.get_artist_top_tracks(primary_artist_id, 25).await;
+        }
+
+        // 3. Get top tracks from the first 5 related artists
+        let mut mix_tracks = Vec::new();
+        // Limit to 5 related artists to avoid massive API calls
+        for related in related_artists.iter().take(5) {
+            if let Some(rid) = &related.ids.deezer {
+                if let Ok(tops) = self.get_artist_top_tracks(rid, 10).await {
+                    // Take top 3-4 tracks from each related artist
+                    mix_tracks.extend(tops.into_iter().take(10));
+                }
+            }
+        }
+
+        // 4. Shuffle the mix
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+        mix_tracks.shuffle(&mut rng);
+
+        println!("DEBUG: Smart mix generated with {} tracks from related artists", mix_tracks.len());
+        
+        Ok(mix_tracks)
     }
 
     /// Search for playlists.
@@ -324,19 +366,13 @@ impl Rusteer {
         let client = reqwest::Client::new();
         let track_id_cloned = track_id.to_string();
 
-        tokio::spawn(async move {
-            let res = match client.get(&media_url.url).send().await {
-                Ok(r) => r,
-                Err(e) => {
-                    tracing::error!("Failed to request HTTP stream: {:?}", e);
-                    return;
-                }
-            };
+        let initial_res = client.get(&media_url.url).send().await.map_err(|e| DeezerError::ApiError(e.to_string()))?;
+        let content_length = initial_res.content_length().unwrap_or(0);
 
+        tokio::spawn(async move {
             use futures_util::StreamExt;
             use tokio::io::AsyncWriteExt;
-            let mut byte_stream = res.bytes_stream();
-
+            let mut byte_stream = initial_res.bytes_stream();
             let key = crypto::calc_blowfish_key(&track_id_cloned);
 
             let mut buffer = Vec::new();
@@ -387,6 +423,7 @@ impl Rusteer {
             quality,
             title,
             artist,
+            content_length,
             stream: reader,
         })
     }

@@ -185,11 +185,15 @@ export const usePlaybackStore = defineStore('playback', {
     },
 
     async fetchRadio(trackId: string) {
+      console.log('Fetching radio for track:', trackId);
       try {
         const relatedTracks = await SearchService.getTrackRadio(trackId);
+        console.log('Received related tracks:', relatedTracks.length);
+        
         // Filter out tracks already in queue
         const newTracks = relatedTracks.filter(rt => !this.queue.some(q => q.ids.deezer === rt.ids.deezer));
         this.queue.push(...newTracks);
+        console.log('New queue length:', this.queue.length);
         
         if (this.isShuffle) {
             this.generateShuffledIndices();

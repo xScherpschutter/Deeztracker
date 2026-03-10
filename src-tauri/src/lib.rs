@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
+use tauri::tray::TrayIconBuilder;
 use souvlaki::{MediaControls, MediaMetadata, PlatformConfig, MediaPlayback, MediaPosition};
 
 // Shared State to hold Rusteer instance
@@ -174,6 +174,7 @@ pub fn run() {
                     if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }
                 })
                 .on_tray_icon_event(|tray, event| {
+                    use tauri::tray::{TrayIconEvent, MouseButton, MouseButtonState};
                     if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
                         if let Some(w) = tray.app_handle().get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }
                     }
@@ -194,23 +195,35 @@ pub fn run() {
                         let track_id = url.trim_start_matches("/stream/").to_string();
                         let state = rusteer_state.clone();
                         let handle = runtime_handle.clone();
-                        let stream_res = handle.block_on(async move {
-                            let guard = state.lock().ok()?;
-                            if let Some(ref rusteer) = *guard { rusteer.stream_track(&track_id).await.ok() } else { None }
+                        
+                        std::thread::spawn(move || {
+                            let stream_res = handle.block_on(async move {
+                                let guard = state.lock().ok()?;
+                                if let Some(ref rusteer) = *guard { rusteer.stream_track(&track_id).await.ok() } else { None }
+                            });
+
+                            if let Some(res) = stream_res {
+                                let content_length = res.content_length;
+                                let reader = SyncStreamReader { inner: res.stream, runtime: handle };
+                                let response = tiny_http::Response::new(
+                                    tiny_http::StatusCode(200),
+                                    vec![
+                                        tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"audio/mpeg"[..]).unwrap(),
+                                        tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+                                        tiny_http::Header::from_bytes(&b"Content-Length"[..], content_length.to_string().as_bytes()).unwrap(),
+                                    ],
+                                    reader,
+                                    Some(content_length as usize),
+                                    None,
+                                );
+                                let _ = request.respond(response);
+                            } else {
+                                let _ = request.respond(tiny_http::Response::from_string("Not Found").with_status_code(404));
+                            }
                         });
-                        if let Some(res) = stream_res {
-                            let reader = SyncStreamReader { inner: res.stream, runtime: handle };
-                            let response = tiny_http::Response::new(
-                                tiny_http::StatusCode(200),
-                                vec![
-                                    tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"audio/mpeg"[..]).unwrap(),
-                                    tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
-                                ],
-                                reader, None, None,
-                            );
-                            let _ = request.respond(response);
-                        } else { let _ = request.respond(tiny_http::Response::from_string("Not Found").with_status_code(404)); }
-                    } else { let _ = request.respond(tiny_http::Response::from_string("Not Found").with_status_code(404)); }
+                    } else {
+                        let _ = request.respond(tiny_http::Response::from_string("Not Found").with_status_code(404));
+                    }
                 }
             });
             Ok(())

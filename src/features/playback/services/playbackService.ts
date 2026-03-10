@@ -42,7 +42,7 @@ export class PlaybackService {
     this.howl = new Howl({
       src: [url],
       format: ['mp3', 'flac'],
-      html5: false, // Web Audio API is better for local servers and perfect seeking
+      html5: true, // Use native audio element now that server supports content-length
       onplay: () => {
         onPlay();
         this.updateMediaMetadata(track);
