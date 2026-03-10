@@ -444,6 +444,22 @@ impl DeezerApi {
             .pipe(Ok)
     }
 
+    /// Get tracks related to a track (radio).
+    pub async fn get_track_radio(&self, track_id: &str) -> Result<Vec<Track>> {
+        let response = self.get_api(&format!("track/{}/radio", track_id)).await?;
+
+        let tracks_data = response
+            .get("data")
+            .and_then(|d| d.as_array())
+            .ok_or_else(|| DeezerError::NoDataApi("No tracks data".to_string()))?;
+
+        tracks_data
+            .iter()
+            .filter_map(|t| converters::parse_track(t).ok())
+            .collect::<Vec<_>>()
+            .pipe(Ok)
+    }
+
     /// Search for tracks.
     pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> {
         let response = self

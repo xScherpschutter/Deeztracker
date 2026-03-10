@@ -138,7 +138,7 @@ impl BatchDownloadResult {
 ///     Ok(())
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rusteer {
     public_api: DeezerApi,
     gateway_api: GatewayApi,
@@ -268,6 +268,11 @@ impl Rusteer {
         self.public_api.search_artists(query, limit, index).await
     }
 
+    /// Get tracks related to a track (radio).
+    pub async fn get_track_radio(&self, track_id: &str) -> Result<Vec<Track>> {
+        self.public_api.get_track_radio(track_id).await
+    }
+
     /// Search for playlists.
     pub async fn search_playlists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Playlist>> {
         self.public_api.search_playlists(query, limit, index).await
@@ -334,7 +339,6 @@ impl Rusteer {
 
             let key = crypto::calc_blowfish_key(&track_id_cloned);
 
-            // We need exactly 2048 bytes blocks for standard decryption
             let mut buffer = Vec::new();
             let mut block_count = 0;
 
@@ -343,7 +347,6 @@ impl Rusteer {
                     Ok(bytes) => {
                         buffer.extend_from_slice(&bytes);
 
-                        // Process available blocks
                         while buffer.len() >= 2048 {
                             let block: Vec<u8> = buffer.drain(..2048).collect();
 
@@ -354,7 +357,6 @@ impl Rusteer {
                             };
 
                             if tx.write_all(&processed).await.is_err() {
-                                // Reader dropped the connection
                                 return;
                             }
 
