@@ -459,7 +459,7 @@ pub fn parse_playlist(json: &Value) -> Result<Playlist> {
     }
 
     // Parse owner/creator
-    let creator = json.get("creator").unwrap_or(&Value::Null);
+    let creator = json.get("creator").or_else(|| json.get("user")).unwrap_or(&Value::Null);
     let owner = User {
         name: get_str(creator, "name"),
         ids: IDs::with_deezer(get_id(creator, "id").unwrap_or_default()),
@@ -498,6 +498,8 @@ pub fn parse_playlist(json: &Value) -> Result<Playlist> {
             .and_then(|d| d.as_str())
             .map(|s| s.to_string()),
         owner,
+        nb_tracks: get_u32(json, "nb_tracks"),
+        duration_ms: get_u64(json, "duration") * 1000,
         tracks,
         images,
         ids: IDs::with_deezer(id.unwrap_or_default()),

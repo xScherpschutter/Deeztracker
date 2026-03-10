@@ -191,7 +191,16 @@ pub struct Playlist {
     pub description: Option<String>,
 
     /// Playlist owner.
+    #[serde(rename = "user")]
     pub owner: User,
+
+    /// Number of tracks in the playlist.
+    #[serde(default)]
+    pub nb_tracks: u32,
+
+    /// Total duration in milliseconds.
+    #[serde(default)]
+    pub duration_ms: u64,
 
     /// Tracks in the playlist.
     #[serde(default)]

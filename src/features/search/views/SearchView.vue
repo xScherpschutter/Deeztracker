@@ -158,8 +158,9 @@ onUnmounted(() => {
                 </div>
                 <h3 class="font-bold text-sm truncate mb-1">{{ album.title }}</h3>
                 <p class="text-xs text-textGray truncate">{{ album.artists.map(a => a.name).join(', ') }}</p>
-                <p class="text-[10px] text-textGray/60 mt-2 uppercase tracking-tighter">{{ album.album_type }} • {{ album.release_date.year }}</p>
-              </div>
+                <p class="text-[10px] text-textGray/60 mt-2 uppercase tracking-tighter">{{ album.album_type }}</p>
+                </div>
+
             </div>
           </div>
         </section>

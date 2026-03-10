@@ -16,6 +16,17 @@ const playbackStore = usePlaybackStore();
 const playlist = ref<Playlist | null>(null);
 const isLoading = ref(true);
 
+const formatLongDuration = (ms: number) => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours} h ${minutes} min`;
+  }
+  return `${minutes} min`;
+};
+
 const playTrack = (track: Track) => {
   if (!playlist.value) return;
   playbackStore.playTrack(track, { type: 'playlist', items: playlist.value.tracks });
@@ -64,7 +75,9 @@ onMounted(async () => {
           <div class="flex items-center gap-2 text-sm font-medium">
             <span class="text-white">{{ playlist.user?.name || t('search.unknown_user') }}</span>
             <span class="text-textGray">•</span>
-            <span class="text-textGray">{{ playlist.nb_tracks }} {{ t('search.track_count', playlist.nb_tracks) }}</span>
+            <span class="text-textGray">{{ t('search.track_count', playlist.nb_tracks) }}</span>
+            <span v-if="playlist.duration_ms" class="text-textGray">•</span>
+            <span v-if="playlist.duration_ms" class="text-textGray">{{ formatLongDuration(playlist.duration_ms) }}</span>
           </div>
         </div>
       </div>
