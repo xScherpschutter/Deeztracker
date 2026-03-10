@@ -2,7 +2,8 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { SearchService } from '../services/searchService';
-import type { Album } from '../models/search';
+import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
+import type { Album, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../utils/time';
 import { getImageUrl } from '../utils/image';
@@ -11,8 +12,33 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const playbackStore = usePlaybackStore();
 const album = ref<Album | null>(null);
 const isLoading = ref(true);
+
+const playTrack = (track: any) => {
+  if (!album.value) return;
+  
+  const tracksWithAlbum = album.value.tracks.map(t => ({
+    ...t,
+    album: {
+      title: album.value?.title,
+      images: album.value?.images,
+      ids: album.value?.ids,
+    }
+  })) as unknown as Track[];
+  
+  const currentTrackWithAlbum = tracksWithAlbum.find(t => t.ids.deezer === track.ids.deezer);
+  if (currentTrackWithAlbum) {
+    playbackStore.playTrack(currentTrackWithAlbum, { type: 'album', items: tracksWithAlbum });
+  }
+};
+
+const playAlbum = () => {
+  if (album.value && album.value.tracks.length > 0) {
+    playTrack(album.value.tracks[0]);
+  }
+};
 
 onMounted(async () => {
   const id = route.params.id as string;
@@ -62,7 +88,10 @@ onMounted(async () => {
 
       <!-- Controls Row -->
       <div class="p-8 flex items-center gap-6">
-        <button class="w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all group">
+        <button 
+          @click="playAlbum"
+          class="w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all group"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-black fill-current ml-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </button>
         <button class="text-textGray hover:text-white transition-colors">
@@ -86,14 +115,16 @@ onMounted(async () => {
             <tr 
               v-for="(track, index) in album.tracks" 
               :key="track.ids.deezer"
+              @click="playTrack(track)"
               class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
+              :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >
-              <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white">
+              <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
                 {{ index + 1 }}
               </td>
               <td class="py-3">
                 <div class="flex flex-col">
-                  <span class="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2">
+                  <span class="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
                     {{ track.title }}
                     <span v-if="track.explicit" class="text-[10px] bg-white/10 text-textGray px-1 rounded uppercase font-bold">E</span>
                   </span>

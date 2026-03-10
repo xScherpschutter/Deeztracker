@@ -59,4 +59,8 @@ export class SearchService {
   static async getArtistAlbums(id: string, limit: number = 20): Promise<Album[]> {
     return await invoke<Album[]>('get_artist_albums', { id, limit });
   }
+
+  static async getTrackRadio(id: string): Promise<Track[]> {
+    return await invoke<Track[]>('get_track_radio', { id });
+  }
 }

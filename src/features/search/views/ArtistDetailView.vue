@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { SearchService } from '../services/searchService';
+import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import type { Artist, Track, Album } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../utils/time';
@@ -11,10 +12,21 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const playbackStore = usePlaybackStore();
 const artist = ref<Artist | null>(null);
 const topTracks = ref<Track[]>([]);
 const albums = ref<Album[]>([]);
 const isLoading = ref(true);
+
+const playTrack = (track: Track) => {
+  playbackStore.playTrack(track, { type: 'top', items: topTracks.value });
+};
+
+const playPopular = () => {
+  if (topTracks.value.length > 0) {
+    playTrack(topTracks.value[0]);
+  }
+};
 
 onMounted(async () => {
   const id = route.params.id as string;
@@ -62,10 +74,20 @@ onMounted(async () => {
             <span class="text-sm font-bold uppercase tracking-widest text-white">{{ t('search.artist_label') }}</span>
           </div>
           <h1 class="text-7xl font-black mb-6 tracking-tighter">{{ artist.name }}</h1>
-          <div class="flex items-center gap-4 text-sm font-medium">
-            <span class="text-white">{{ artist.nb_fan?.toLocaleString() }} {{ t('search.fans') }}</span>
-            <span class="text-textGray">•</span>
-            <span class="text-white">{{ artist.nb_album }} {{ t('search.categories.albums') }}</span>
+          <div class="flex items-center gap-6 mb-2">
+            <button 
+              @click="playPopular"
+              class="w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all group"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-black fill-current ml-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <div class="flex flex-col">
+              <div class="flex items-center gap-4 text-sm font-medium">
+                <span class="text-white">{{ artist.nb_fan?.toLocaleString() }} {{ t('search.fans') }}</span>
+                <span class="text-textGray">•</span>
+                <span class="text-white">{{ artist.nb_album }} {{ t('search.categories.albums') }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -79,12 +101,19 @@ onMounted(async () => {
             <div 
               v-for="(track, index) in topTracks" 
               :key="track.ids.deezer"
+              @click="playTrack(track)"
               class="group flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >
-              <span class="w-6 text-center text-textGray text-sm tabular-nums group-hover:text-white">{{ index + 1 }}</span>
+              <span class="w-6 text-center text-textGray text-sm tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
+                <span v-if="playbackStore.currentTrack?.ids.deezer === track.ids.deezer && playbackStore.isPlaying">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mx-auto animate-pulse fill-current" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </span>
+                <span v-else>{{ index + 1 }}</span>
+              </span>
               <img :src="getImageUrl(track.album.images)" class="w-10 h-10 object-cover rounded shadow-lg" />
               <div class="flex-1 min-w-0">
-                <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors">{{ track.title }}</h3>
+                <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">{{ track.title }}</h3>
                 <p v-if="track.explicit" class="text-[10px] bg-white/10 text-textGray px-1 rounded uppercase font-bold w-fit mt-0.5">E</p>
               </div>
               <span class="text-xs text-textGray tabular-nums">{{ formatDuration(track.duration_ms) }}</span>

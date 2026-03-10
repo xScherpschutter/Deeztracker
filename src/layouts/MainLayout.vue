@@ -2,6 +2,7 @@
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../features/auth/stores/useAuthStore';
 import { useI18n } from 'vue-i18n';
+import PlayerBar from '../features/playback/components/PlayerBar.vue';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -57,28 +58,7 @@ const isActive = (name: string) => route.name === name || route.path.startsWith(
       </main>
 
       <!-- Player Bar -->
-      <footer class="h-24 bg-surface border-t border-white/5 px-8 flex items-center justify-between flex-shrink-0 z-20">
-        <div class="flex items-center gap-4 w-1/3">
-          <div class="w-14 h-14 bg-background rounded-lg"></div>
-          <div class="space-y-2">
-            <div class="h-4 bg-white/5 rounded w-32"></div>
-            <div class="h-3 bg-white/5 rounded w-24"></div>
-          </div>
-        </div>
-        <div class="flex flex-col items-center gap-3 w-1/3">
-           <div class="flex items-center gap-6">
-             <div class="w-4 h-4 bg-white/10 rounded-full"></div>
-             <div class="w-10 h-10 bg-primary/20 rounded-full"></div>
-             <div class="w-4 h-4 bg-white/10 rounded-full"></div>
-           </div>
-           <div class="w-full h-1 bg-white/5 rounded-full relative">
-             <div class="absolute inset-y-0 left-0 w-1/3 bg-primary rounded-full"></div>
-           </div>
-        </div>
-        <div class="w-1/3 flex justify-end">
-          <div class="w-32 h-1 bg-white/5 rounded-full"></div>
-        </div>
-      </footer>
+      <PlayerBar />
     </div>
   </div>
 </template>

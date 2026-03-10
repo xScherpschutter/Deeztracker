@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useSearchStore } from '../stores/useSearchStore';
+import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import type { SearchType } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -10,6 +11,7 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 
 const { t } = useI18n();
 const searchStore = useSearchStore();
+const playbackStore = usePlaybackStore();
 const router = useRouter();
 const scrollContainer = ref<HTMLElement | null>(null);
 
@@ -107,21 +109,23 @@ onUnmounted(() => {
               <div 
                 v-for="track in searchStore.results.tracks" 
                 :key="track.ids.deezer"
+                @click="playbackStore.playTrack(track)"
                 class="group flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
-                <div class="relative w-12 h-12 flex-shrink-0" @click="router.push(`/album/${track.album.ids.deezer}`)">
+                <div class="relative w-12 h-12 flex-shrink-0" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
                   <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded-md shadow-lg" />
                   <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md transition-opacity">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                   </div>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors">{{ track.title }}</h3>
+                  <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">{{ track.title }}</h3>
                   <p class="text-xs text-textGray truncate hover:underline" @click.stop="router.push(`/artist/${track.artists[0].ids.deezer}`)">
                     {{ track.artists.map(a => a.name).join(', ') }}
                   </p>
                 </div>
-                <div class="hidden md:block flex-1 min-w-0 px-4 hover:underline" @click="router.push(`/album/${track.album.ids.deezer}`)">
+                <div class="hidden md:block flex-1 min-w-0 px-4 hover:underline" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
                   <p class="text-xs text-textGray truncate">{{ track.album.title }}</p>
                 </div>
                 <div class="text-xs text-textGray font-mono tabular-nums pr-2">
