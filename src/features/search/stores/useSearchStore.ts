@@ -8,7 +8,8 @@ export const useSearchStore = defineStore('search', () => {
   const activeType = ref<SearchType>('all');
   const isLoading = ref(false);
   const isLoadingMore = ref(false);
-  const error = ref<string | null>(null);
+  const isInitialized = ref(false);
+  const authError = ref<string | null>(null);
 
   const results = ref({
     tracks: [] as Track[],
@@ -32,16 +33,11 @@ export const useSearchStore = defineStore('search', () => {
       return;
     }
 
-    isLoading.value = true;
-    error.value = null;
+    // Limpiamos resultados previos inmediatamente para evitar "flashes" de datos viejos
+    clearResults();
     
-    // Reset pagination
-    pagination.value = {
-      tracks: { index: 0, hasMore: true },
-      albums: { index: 0, hasMore: true },
-      artists: { index: 0, hasMore: true },
-      playlists: { index: 0, hasMore: true }
-    };
+    isLoading.value = true;
+    authError.value = null;
 
     try {
       if (activeType.value === 'all') {
@@ -50,7 +46,7 @@ export const useSearchStore = defineStore('search', () => {
       } else {
         const type = activeType.value;
         let newResults: any[] = [];
-        
+
         switch (type) {
           case 'tracks':
             newResults = await SearchService.searchTracks(query.value, LIMIT, 0);
@@ -69,15 +65,12 @@ export const useSearchStore = defineStore('search', () => {
             results.value.playlists = newResults;
             break;
         }
-        
-        if (type !== 'all') {
-          pagination.value[type].index = newResults.length;
-          pagination.value[type].hasMore = newResults.length === LIMIT;
-        }
+
+        pagination.value[type].index = newResults.length;
+        pagination.value[type].hasMore = newResults.length === LIMIT;
       }
     } catch (e) {
       console.error('Search error:', e);
-      error.value = 'Failed to fetch search results';
     } finally {
       isLoading.value = false;
     }
@@ -133,7 +126,6 @@ export const useSearchStore = defineStore('search', () => {
       artists: { index: 0, hasMore: true },
       playlists: { index: 0, hasMore: true }
     };
-    error.value = null;
   }
 
   let debounceTimeout: number | undefined;
@@ -150,8 +142,8 @@ export const useSearchStore = defineStore('search', () => {
     results,
     isLoading,
     isLoadingMore,
-    pagination,
-    error,
+    isInitialized,
+    authError,
     performSearch,
     loadMore,
     clearResults

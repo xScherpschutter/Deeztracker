@@ -39,4 +39,24 @@ export class SearchService {
 
     return { tracks, albums, artists, playlists };
   }
+
+  static async getAlbum(id: string): Promise<Album> {
+    return await invoke<Album>('get_album', { id });
+  }
+
+  static async getArtist(id: string): Promise<Artist> {
+    return await invoke<Artist>('get_artist', { id });
+  }
+
+  static async getPlaylist(id: string): Promise<Playlist> {
+    return await invoke<Playlist>('get_playlist', { id });
+  }
+
+  static async getArtistTopTracks(id: string, limit: number = 10): Promise<Track[]> {
+    return await invoke<Track[]>('get_artist_top_tracks', { id, limit });
+  }
+
+  static async getArtistAlbums(id: string, limit: number = 20): Promise<Album[]> {
+    return await invoke<Album[]>('get_artist_albums', { id, limit });
+  }
 }

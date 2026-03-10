@@ -3,9 +3,14 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useSearchStore } from '../stores/useSearchStore';
 import type { SearchType } from '../models/search';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+import { formatDuration } from '../utils/time';
+import { getImageUrl } from '../utils/image';
+import LoadingSpinner from '../components/LoadingSpinner.vue';
 
 const { t } = useI18n();
 const searchStore = useSearchStore();
+const router = useRouter();
 const scrollContainer = ref<HTMLElement | null>(null);
 
 const categories = computed<{ label: string; value: SearchType }[]>(() => [
@@ -18,22 +23,9 @@ const categories = computed<{ label: string; value: SearchType }[]>(() => [
 
 const setType = (type: SearchType) => {
   searchStore.activeType = type;
-  // Scroll to top when changing category
   if (scrollContainer.value) {
     scrollContainer.value.scrollTop = 0;
   }
-};
-
-const formatDuration = (ms: number) => {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-};
-
-const getImageUrl = (images: any[], fallback: string = '') => {
-  if (!images || images.length === 0) return fallback;
-  return images[Math.min(1, images.length - 1)].url;
 };
 
 // Infinite scroll logic
@@ -41,7 +33,6 @@ const handleScroll = () => {
   if (!scrollContainer.value || searchStore.activeType === 'all') return;
   
   const { scrollTop, scrollHeight, clientHeight } = scrollContainer.value;
-  // If we are 200px from the bottom, load more
   if (scrollTop + clientHeight >= scrollHeight - 200) {
     searchStore.loadMore();
   }
@@ -61,9 +52,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-background text-white p-8">
-    <!-- Header: Search Input & Filters -->
-    <div class="mb-10 space-y-6">
+  <div class="h-full flex flex-col overflow-hidden bg-background text-white">
+    <!-- Header: Search Input & Filters (Fixed with padding) -->
+    <div class="p-8 pb-4 space-y-6 flex-shrink-0">
       <div class="relative max-w-2xl group">
         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textGray group-focus-within:text-primary transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -91,12 +82,10 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Results Area -->
-    <div ref="scrollContainer" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+    <!-- Results Area (Scrollable) -->
+    <div ref="scrollContainer" class="flex-1 overflow-y-auto px-8 pb-12 custom-scrollbar">
       <!-- Loading State -->
-      <div v-if="searchStore.isLoading" class="flex items-center justify-center h-64">
-        <div class="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-      </div>
+      <LoadingSpinner v-if="searchStore.isLoading" size="lg" />
 
       <!-- Empty State -->
       <div v-else-if="!searchStore.query" class="flex flex-col items-center justify-center h-64 opacity-40">
@@ -120,7 +109,7 @@ onUnmounted(() => {
                 :key="track.ids.deezer"
                 class="group flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
               >
-                <div class="relative w-12 h-12 flex-shrink-0">
+                <div class="relative w-12 h-12 flex-shrink-0" @click="router.push(`/album/${track.album.ids.deezer}`)">
                   <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded-md shadow-lg" />
                   <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md transition-opacity">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -128,9 +117,11 @@ onUnmounted(() => {
                 </div>
                 <div class="flex-1 min-w-0">
                   <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors">{{ track.title }}</h3>
-                  <p class="text-xs text-textGray truncate">{{ track.artists.map(a => a.name).join(', ') }}</p>
+                  <p class="text-xs text-textGray truncate hover:underline" @click.stop="router.push(`/artist/${track.artists[0].ids.deezer}`)">
+                    {{ track.artists.map(a => a.name).join(', ') }}
+                  </p>
                 </div>
-                <div class="hidden md:block flex-1 min-w-0 px-4">
+                <div class="hidden md:block flex-1 min-w-0 px-4 hover:underline" @click="router.push(`/album/${track.album.ids.deezer}`)">
                   <p class="text-xs text-textGray truncate">{{ track.album.title }}</p>
                 </div>
                 <div class="text-xs text-textGray font-mono tabular-nums pr-2">
@@ -152,6 +143,7 @@ onUnmounted(() => {
               <div 
                 v-for="album in searchStore.results.albums" 
                 :key="album.ids.deezer"
+                @click="router.push(`/album/${album.ids.deezer}`)"
                 class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all hover:translate-y-[-4px] cursor-pointer"
               >
                 <div class="aspect-square mb-4 shadow-2xl relative">
@@ -179,6 +171,7 @@ onUnmounted(() => {
               <div 
                 v-for="artist in searchStore.results.artists" 
                 :key="artist.ids.deezer"
+                @click="router.push(`/artist/${artist.ids.deezer}`)"
                 class="group flex flex-col items-center text-center p-4 rounded-xl hover:bg-surface/40 transition-all cursor-pointer"
               >
                 <div class="w-32 h-32 md:w-40 md:h-40 mb-4 shadow-2xl relative">
@@ -202,6 +195,7 @@ onUnmounted(() => {
               <div 
                 v-for="playlist in searchStore.results.playlists" 
                 :key="playlist.ids.deezer"
+                @click="router.push(`/playlist/${playlist.ids.deezer}`)"
                 class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all cursor-pointer"
               >
                 <div class="aspect-square mb-4 shadow-2xl relative">
@@ -220,7 +214,7 @@ onUnmounted(() => {
         </div>
 
         <!-- No Results for Query -->
-        <div v-if="Object.values(searchStore.results).every(r => r.length === 0) && !searchStore.isLoading" class="flex flex-col items-center justify-center h-64 opacity-60 px-4 text-center">
+        <div v-if="!searchStore.isLoading && searchStore.query.length > 1 && Object.values(searchStore.results).every(r => r.length === 0)" class="flex flex-col items-center justify-center h-64 opacity-60 px-4 text-center">
            <p class="text-xl font-medium">{{ t('search.no_results', { query: searchStore.query }) }}</p>
            <p class="text-sm text-textGray mt-2">{{ t('search.no_results_help') }}</p>
         </div>

@@ -22,12 +22,32 @@ export interface Artist {
   genres: string[];
   images: Image[];
   ids: IDs;
+  nb_album?: number;
+  nb_fan?: number;
 }
 
 export interface ArtistTrack {
   type: string;
   name: string;
   ids: IDs;
+}
+
+export interface ArtistTrackAlbum {
+  type: string;
+  name: string;
+  ids: IDs;
+}
+
+export interface TrackAlbum {
+  type: string;
+  title: string;
+  disc_number: number;
+  track_number: number;
+  duration_ms: number;
+  explicit: boolean;
+  genres: string[];
+  ids: IDs;
+  artists: ArtistTrackAlbum[];
 }
 
 export interface AlbumTrack {
@@ -67,7 +87,7 @@ export interface Album {
   images: Image[];
   ids: IDs;
   artists: ArtistTrack[];
-  tracks?: any[]; // Simplified for search results
+  tracks: TrackAlbum[];
 }
 
 export interface Playlist {
@@ -83,6 +103,7 @@ export interface Playlist {
     name: string;
     ids: IDs;
   };
+  tracks: Track[];
 }
 
 export type SearchType = 'all' | 'tracks' | 'albums' | 'artists' | 'playlists';
