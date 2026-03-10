@@ -426,6 +426,24 @@ impl DeezerApi {
             .collect()
     }
 
+    /// Get an artist's albums.
+    pub async fn get_artist_albums(&self, artist_id: &str, limit: u32) -> Result<Vec<Album>> {
+        let response = self
+            .get_api(&format!("artist/{}/albums?limit={}", artist_id, limit))
+            .await?;
+
+        let albums_data = response
+            .get("data")
+            .and_then(|d| d.as_array())
+            .ok_or_else(|| DeezerError::NoDataApi("No albums data".to_string()))?;
+
+        albums_data
+            .iter()
+            .filter_map(|a| converters::parse_album(a).ok())
+            .collect::<Vec<_>>()
+            .pipe(Ok)
+    }
+
     /// Search for tracks.
     pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> {
         let response = self

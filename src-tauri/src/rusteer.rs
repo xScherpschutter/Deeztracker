@@ -243,6 +243,16 @@ impl Rusteer {
         self.public_api.get_artist(artist_id).await
     }
 
+    /// Get artist's top tracks.
+    pub async fn get_artist_top_tracks(&self, artist_id: &str, limit: u32) -> Result<Vec<Track>> {
+        self.public_api.get_artist_top_tracks(artist_id, limit).await
+    }
+
+    /// Get artist's albums.
+    pub async fn get_artist_albums(&self, artist_id: &str, limit: u32) -> Result<Vec<Album>> {
+        self.public_api.get_artist_albums(artist_id, limit).await
+    }
+
     /// Search for tracks.
     pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> {
         self.public_api.search_tracks(query, limit, index).await

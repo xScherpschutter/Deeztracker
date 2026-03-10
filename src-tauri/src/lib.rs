@@ -148,6 +148,73 @@ async fn search_playlists(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_album(
+    id: String,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Album, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer.get_album(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_artist(
+    id: String,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Artist, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer.get_artist(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_playlist(
+    id: String,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Playlist, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer.get_playlist(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_artist_top_tracks(
+    id: String,
+    limit: u32,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Vec<Track>, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer.get_artist_top_tracks(&id, limit).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_artist_albums(
+    id: String,
+    limit: u32,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<Vec<Album>, String> {
+    let rusteer_guard = state.0.lock().await;
+    let rusteer = rusteer_guard
+        .as_ref()
+        .ok_or_else(|| "Not logged in".to_string())?;
+
+    rusteer.get_artist_albums(&id, limit).await.map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = RusteerState(Arc::new(Mutex::new(None)));
@@ -163,7 +230,12 @@ pub fn run() {
             search_tracks,
             search_albums,
             search_artists,
-            search_playlists
+            search_playlists,
+            get_album,
+            get_artist,
+            get_playlist,
+            get_artist_top_tracks,
+            get_artist_albums
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
