@@ -1,0 +1,39 @@
+{
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "arl_label": "ARL Token",
+    "arl_placeholder": "Ingresa tu Deezer ARL Token",
+    "authenticate": "Autenticar",
+    "error_failed": "Error al iniciar sesión. Verifica tu token.",
+    "success": "¡Bienvenido de nuevo!",
+    "logging_in": "Iniciando sesión...",
+    "arl_help": "Obtén tu token ARL de la cookie de sesión en deezer.com"
+  },
+  "search": {
+    "placeholder": "¿Qué quieres escuchar?",
+    "unknown_user": "Usuario desconocido",
+    "view_all": "Ver todo",
+    "artist_label": "Artista",
+    "playlist_by": "De {user}",
+    "empty_state": "Escribe algo para buscar música",
+    "no_results": "No se han encontrado resultados para \"{query}\"",
+    "no_results_help": "Asegúrate de que las palabras estén bien escritas o prueba con otros términos.",
+    "categories": {
+      "all": "Todo",
+      "tracks": "Canciones",
+      "albums": "Álbumes",
+      "artists": "Artistas",
+      "playlists": "Playlists"
+    }
+  },
+  "nav": {
+    "home": "Inicio",
+    "search": "Buscar",
+    "library": "Tu Biblioteca",
+    "coming_soon": "Próximamente..."
+  },
+  "dashboard": {
+    "welcome": "Bienvenido de nuevo"
+  }
+}
