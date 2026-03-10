@@ -19,6 +19,10 @@
     "empty_state": "Escribe algo para buscar música",
     "no_results": "No se han encontrado resultados para \"{query}\"",
     "no_results_help": "Asegúrate de que las palabras estén bien escritas o prueba con otros términos.",
+    "track_count": "{n} canción | {n} canciones",
+    "fans": "fans",
+    "popular_songs": "Canciones populares",
+    "track_title": "Título",
     "categories": {
       "all": "Todo",
       "tracks": "Canciones",
@@ -35,5 +39,12 @@
   },
   "dashboard": {
     "welcome": "Bienvenido de nuevo"
+  },
+  "app_bar": {
+    "back": "Atrás",
+    "forward": "Adelante",
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Cerrar"
   }
 }

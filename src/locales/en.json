@@ -19,6 +19,10 @@
     "empty_state": "Type something to search for music",
     "no_results": "No results found for \"{query}\"",
     "no_results_help": "Make sure the words are spelled correctly or try other terms.",
+    "track_count": "{n} track | {n} tracks",
+    "fans": "fans",
+    "popular_songs": "Popular songs",
+    "track_title": "Title",
     "categories": {
       "all": "All",
       "tracks": "Tracks",
@@ -35,5 +39,12 @@
   },
   "dashboard": {
     "welcome": "Welcome back"
+  },
+  "app_bar": {
+    "back": "Back",
+    "forward": "Forward",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
   }
 }
