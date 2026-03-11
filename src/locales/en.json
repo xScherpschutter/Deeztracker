@@ -103,6 +103,11 @@
       "title": "About",
       "version": "Version"
     },
+    "general": {
+      "title": "General",
+      "launch_on_startup": "Launch on startup",
+      "launch_on_startup_help": "Automatically open Deeztracker when your computer starts."
+    },
     "close": "Close"
   }
 }

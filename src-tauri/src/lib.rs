@@ -9,7 +9,7 @@ mod rusteer;
 pub mod tagging;
 
 pub use api::{DeezerApi, GatewayApi};
-pub use database::{DbState};
+pub use database::DbState;
 pub use error::DeezerError;
 pub use models::{Album, Artist, Playlist, Track};
 pub use rusteer::{BatchDownloadResult, DownloadQuality, DownloadResult, Rusteer};
@@ -22,6 +22,7 @@ use std::sync::Arc;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
+use tauri_plugin_autostart::ManagerExt;
 use tokio::io::AsyncReadExt;
 
 // Shared State to hold Rusteer instance
@@ -62,17 +63,20 @@ async fn get_user_info(state: tauri::State<'_, RusteerState>) -> Result<serde_js
 }
 
 #[tauri::command]
-async fn set_audio_quality(quality: String, state: tauri::State<'_, RusteerState>) -> Result<(), String> {
+async fn set_audio_quality(
+    quality: String,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     let rusteer = guard.as_mut().ok_or_else(|| "Not logged in".to_string())?;
-    
+
     let q = match quality.as_str() {
         "FLAC" => DownloadQuality::Flac,
         "MP3_320" => DownloadQuality::Mp3_320,
         "MP3_128" => DownloadQuality::Mp3_128,
         _ => return Err("Invalid quality".to_string()),
     };
-    
+
     rusteer.set_quality(q);
     Ok(())
 }
@@ -401,12 +405,27 @@ fn serve_file_request(request: tiny_http::Request, file_path: &PathBuf) {
 }
 
 #[tauri::command]
+async fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let manager = app.autolaunch();
+    if enabled {
+        manager.enable().map_err(|e| e.to_string())
+    } else {
+        manager.disable().map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
 async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json::Value, String> {
     let _ = get_rusteer(&state)?;
     // We reuse the public API client inside Rusteer
     let api = DeezerApi::new();
     let charts = api.get_charts().await.map_err(|e| e.to_string())?;
-    
+
     // Process the charts to convert them to our structured models
     let mut processed_charts = serde_json::json!({
         "tracks": [],
@@ -415,27 +434,59 @@ async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json:
         "playlists": []
     });
 
-    if let Some(tracks) = charts.get("tracks").and_then(|t| t.get("data")).and_then(|d| d.as_array()) {
+    if let Some(tracks) = charts
+        .get("tracks")
+        .and_then(|t| t.get("data"))
+        .and_then(|d| d.as_array())
+    {
         processed_charts["tracks"] = serde_json::Value::Array(
-            tracks.iter().filter_map(|t| converters::parse_track(t).ok()).map(|t| serde_json::to_value(t).unwrap()).collect()
+            tracks
+                .iter()
+                .filter_map(|t| converters::parse_track(t).ok())
+                .map(|t| serde_json::to_value(t).unwrap())
+                .collect(),
         );
     }
 
-    if let Some(albums) = charts.get("albums").and_then(|a| a.get("data")).and_then(|d| d.as_array()) {
+    if let Some(albums) = charts
+        .get("albums")
+        .and_then(|a| a.get("data"))
+        .and_then(|d| d.as_array())
+    {
         processed_charts["albums"] = serde_json::Value::Array(
-            albums.iter().filter_map(|a| converters::parse_album(a).ok()).map(|a| serde_json::to_value(a).unwrap()).collect()
+            albums
+                .iter()
+                .filter_map(|a| converters::parse_album(a).ok())
+                .map(|a| serde_json::to_value(a).unwrap())
+                .collect(),
         );
     }
 
-    if let Some(artists) = charts.get("artists").and_then(|a| a.get("data")).and_then(|d| d.as_array()) {
+    if let Some(artists) = charts
+        .get("artists")
+        .and_then(|a| a.get("data"))
+        .and_then(|d| d.as_array())
+    {
         processed_charts["artists"] = serde_json::Value::Array(
-            artists.iter().filter_map(|a| converters::parse_artist(a).ok()).map(|a| serde_json::to_value(a).unwrap()).collect()
+            artists
+                .iter()
+                .filter_map(|a| converters::parse_artist(a).ok())
+                .map(|a| serde_json::to_value(a).unwrap())
+                .collect(),
         );
     }
 
-    if let Some(playlists) = charts.get("playlists").and_then(|p| p.get("data")).and_then(|d| d.as_array()) {
+    if let Some(playlists) = charts
+        .get("playlists")
+        .and_then(|p| p.get("data"))
+        .and_then(|d| d.as_array())
+    {
         processed_charts["playlists"] = serde_json::Value::Array(
-            playlists.iter().filter_map(|p| converters::parse_playlist(p).ok()).map(|p| serde_json::to_value(p).unwrap()).collect()
+            playlists
+                .iter()
+                .filter_map(|p| converters::parse_playlist(p).ok())
+                .map(|p| serde_json::to_value(p).unwrap())
+                .collect(),
         );
     }
 
@@ -451,6 +502,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             // Initialize Media Controls (Souvlaki)
             #[cfg(not(target_os = "android"))]
@@ -460,18 +515,29 @@ pub fn run() {
                     display_name: "Deeztracker Streaming",
                     hwnd: None,
                 };
-                let mut controls = MediaControls::new(config).expect("Failed to create media controls");
-                
+                let mut controls =
+                    MediaControls::new(config).expect("Failed to create media controls");
+
                 let app_handle = app.handle().clone();
                 let _ = controls.attach(move |event| {
                     use souvlaki::MediaControlEvent;
                     use tauri::Emitter;
                     match event {
-                        MediaControlEvent::Play => { let _ = app_handle.emit("media-play", ()); },
-                        MediaControlEvent::Pause => { let _ = app_handle.emit("media-pause", ()); },
-                        MediaControlEvent::Toggle => { let _ = app_handle.emit("media-toggle", ()); },
-                        MediaControlEvent::Next => { let _ = app_handle.emit("media-next", ()); },
-                        MediaControlEvent::Previous => { let _ = app_handle.emit("media-prev", ()); },
+                        MediaControlEvent::Play => {
+                            let _ = app_handle.emit("media-play", ());
+                        }
+                        MediaControlEvent::Pause => {
+                            let _ = app_handle.emit("media-pause", ());
+                        }
+                        MediaControlEvent::Toggle => {
+                            let _ = app_handle.emit("media-toggle", ());
+                        }
+                        MediaControlEvent::Next => {
+                            let _ = app_handle.emit("media-next", ());
+                        }
+                        MediaControlEvent::Previous => {
+                            let _ = app_handle.emit("media-prev", ());
+                        }
                         _ => (),
                     }
                 });
@@ -483,7 +549,10 @@ pub fn run() {
             }
 
             // Initialize Database
-            let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to get app data dir");
             let conn = database::init(app_data_dir).expect("Failed to initialize database");
             app.manage(database::DbState(std::sync::Mutex::new(conn)));
 
@@ -620,6 +689,8 @@ pub fn run() {
             update_playback_state,
             get_streaming_base_url,
             get_charts,
+            get_autostart,
+            set_autostart,
             api::lyrics::get_lyrics,
             database::toggle_favorite,
             database::get_favorites,

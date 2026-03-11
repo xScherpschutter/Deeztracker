@@ -4,6 +4,7 @@ import { useAuthStore } from '../../auth/stores/useAuthStore';
 import { useI18n } from 'vue-i18n';
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { invoke } from '@tauri-apps/api/core';
 
 const props = defineProps<{
   isOpen: boolean
@@ -71,8 +72,22 @@ const handleClickOutside = (e: MouseEvent) => {
   }
 };
 
-onMounted(() => document.addEventListener('click', handleClickOutside));
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+  invoke<boolean>('get_autostart').then(v => { autostartEnabled.value = v; }).catch(() => {});
+});
 onUnmounted(() => document.removeEventListener('click', handleClickOutside));
+
+const autostartEnabled = ref(false);
+const toggleAutostart = async () => {
+  const next = !autostartEnabled.value;
+  try {
+    await invoke('set_autostart', { enabled: next });
+    autostartEnabled.value = next;
+  } catch (e) {
+    console.error('autostart error', e);
+  }
+};
 
 const arlToken = computed(() => {
   const fullArl = localStorage.getItem('deeztracker_arl') || '';
@@ -190,6 +205,31 @@ const handleLogout = () => {
                   </div>
                 </Transition>
               </div>
+            </div>
+          </section>
+
+          <!-- General Section -->
+          <section>
+            <h3 class="text-xs font-bold text-textGray uppercase tracking-wider mb-4">{{ t('settings.general.title') }}</h3>
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium">{{ t('settings.general.launch_on_startup') }}</div>
+                <div class="text-xs text-textGray">{{ t('settings.general.launch_on_startup_help') }}</div>
+              </div>
+              <!-- Toggle Switch -->
+              <button
+                id="autostart-toggle"
+                @click="toggleAutostart"
+                class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none flex-shrink-0"
+                :class="autostartEnabled ? 'bg-primary' : 'bg-white/20'"
+                :aria-checked="autostartEnabled"
+                role="switch"
+              >
+                <span
+                  class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                  :class="autostartEnabled ? 'translate-x-5' : 'translate-x-0'"
+                />
+              </button>
             </div>
           </section>
 

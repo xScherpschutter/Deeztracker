@@ -103,6 +103,11 @@
       "title": "Acerca de",
       "version": "Versión"
     },
+    "general": {
+      "title": "General",
+      "launch_on_startup": "Iniciar al encender el equipo",
+      "launch_on_startup_help": "Abre Deeztracker automáticamente al arrancar el sistema."
+    },
     "close": "Cerrar"
   }
 }
