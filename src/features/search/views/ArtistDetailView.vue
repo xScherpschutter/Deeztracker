@@ -70,7 +70,6 @@ onMounted(async () => {
         
         <div class="flex-1 z-10 relative mb-6">
           <div class="flex items-center gap-2 mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-primary fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
             <span class="text-sm font-bold uppercase tracking-widest text-white">{{ t('search.artist_label') }}</span>
           </div>
           <h1 class="text-7xl font-black mb-6 tracking-tighter">{{ artist.name }}</h1>
