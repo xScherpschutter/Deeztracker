@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../../search/utils/time';
 import { getImageUrl } from '../../search/utils/image';
+import { getRelativeTime } from '../../../utils/date';
 import type { Track } from '../../search/models/search';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
 
@@ -119,6 +120,9 @@ const cancelDeletePlaylist = () => {
               </div>
               <div class="hidden md:block flex-1 min-w-0 px-4 hover:underline" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
                 <p class="text-xs text-textGray truncate">{{ track.album.title }}</p>
+              </div>
+              <div class="hidden lg:block flex-1 min-w-0 px-4">
+                <p class="text-xs text-textGray truncate">{{ track.added_at ? getRelativeTime(track.added_at, t) : '-' }}</p>
               </div>
               <div class="flex items-center justify-end gap-3 pr-2">
                 <button 

@@ -78,12 +78,15 @@ pub async fn toggle_favorite(track: Track, state: tauri::State<'_, DbState>) -> 
 #[tauri::command]
 pub async fn get_favorites(state: tauri::State<'_, DbState>) -> Result<Vec<Track>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT metadata FROM favorites ORDER BY added_at DESC")
+    let mut stmt = conn.prepare("SELECT metadata, added_at FROM favorites ORDER BY added_at DESC")
         .map_err(|e| e.to_string())?;
     
     let tracks_iter = stmt.query_map([], |row| {
         let metadata: String = row.get(0)?;
-        Ok(serde_json::from_str::<Track>(&metadata).unwrap())
+        let added_at: String = row.get(1)?;
+        let mut track: Track = serde_json::from_str(&metadata).unwrap();
+        track.added_at = Some(added_at);
+        Ok(track)
     }).map_err(|e| e.to_string())?;
 
     let mut tracks = Vec::new();
@@ -171,12 +174,15 @@ pub async fn remove_track_from_playlist(playlist_id: i64, track_id: String, stat
 #[tauri::command]
 pub async fn get_playlist_tracks(playlist_id: i64, state: tauri::State<'_, DbState>) -> Result<Vec<Track>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT metadata FROM playlist_tracks WHERE playlist_id = ? ORDER BY added_at ASC")
+    let mut stmt = conn.prepare("SELECT metadata, added_at FROM playlist_tracks WHERE playlist_id = ? ORDER BY added_at ASC")
         .map_err(|e| e.to_string())?;
     
     let tracks_iter = stmt.query_map(params![playlist_id], |row| {
         let metadata: String = row.get(0)?;
-        Ok(serde_json::from_str::<Track>(&metadata).unwrap())
+        let added_at: String = row.get(1)?;
+        let mut track: Track = serde_json::from_str(&metadata).unwrap();
+        track.added_at = Some(added_at);
+        Ok(track)
     }).map_err(|e| e.to_string())?;
 
     let mut tracks = Vec::new();

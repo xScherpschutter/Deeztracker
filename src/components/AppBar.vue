@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useAuthStore } from '../features/auth/stores/useAuthStore';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ref } from 'vue';
 import SettingsModal from '../features/dashboard/components/SettingsModal.vue';
@@ -10,6 +10,7 @@ const { t } = useI18n();
 const appWindow = getCurrentWindow();
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const isSettingsOpen = ref(false);
 
 const minimize = () => appWindow.minimize();
@@ -18,6 +19,8 @@ const close = () => appWindow.close();
 
 const goBack = () => router.back();
 const goForward = () => router.forward();
+
+const isActive = (name: string) => route.name === name || route.path.startsWith(`/${name}`);
 </script>
 
 <template>
@@ -25,8 +28,8 @@ const goForward = () => router.forward();
     <!-- Región de arrastre absoluta -->
     <div data-tauri-drag-region class="absolute inset-0 z-[-1] cursor-default"></div>
 
-    <!-- Left Side: Logo & Navigation (Solo si está autenticado) -->
-    <div class="flex items-center gap-4 px-4 h-full">
+    <!-- Left Side: Logo & Navigation -->
+    <div class="flex items-center gap-4 px-4 h-full min-w-[200px]">
       <div v-if="authStore.isAuthenticated" class="flex items-center gap-2 pointer-events-none">
         <img src="/icon.png" alt="Logo" class="w-5 h-5 object-contain" />
         <span class="text-xs font-semibold tracking-wider text-textGray uppercase">Deeztracker</span>
@@ -50,8 +53,38 @@ const goForward = () => router.forward();
       </div>
     </div>
 
+    <!-- Center: Main Navigation (Solo si está autenticado) -->
+    <div v-if="authStore.isAuthenticated" class="flex items-center gap-2 h-full">
+      <button 
+        @click="router.push('/dashboard')"
+        class="no-drag flex items-center gap-2 px-3 h-8 rounded-lg transition-all font-medium text-xs group"
+        :class="isActive('dashboard') ? 'bg-primary/10 text-primary' : 'text-textGray hover:text-white hover:bg-white/5'"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>{{ t('nav.home') }}</span>
+      </button>
+      
+      <button 
+        @click="router.push('/search')"
+        class="no-drag flex items-center gap-2 px-3 h-8 rounded-lg transition-all font-medium text-xs group"
+        :class="isActive('search') ? 'bg-primary/10 text-primary' : 'text-textGray hover:text-white hover:bg-white/5'"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>{{ t('nav.search') }}</span>
+      </button>
+
+      <button 
+        @click="router.push('/library')"
+        class="no-drag flex items-center gap-2 px-3 h-8 rounded-lg transition-all font-medium text-xs group"
+        :class="isActive('library') ? 'bg-primary/10 text-primary' : 'text-textGray hover:text-white hover:bg-white/5'"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <span>{{ t('library.title') }}</span>
+      </button>
+    </div>
+
     <!-- Right Side: Settings & Window Controls -->
-    <div class="flex items-center h-full">
+    <div class="flex items-center h-full min-w-[200px] justify-end">
       <!-- Settings Icon (Solo si está autenticado) -->
       <button 
         v-if="authStore.isAuthenticated"

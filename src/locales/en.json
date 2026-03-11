@@ -51,7 +51,17 @@
     "delete_playlist_btn": "Delete",
     "playlist_created": "Playlist created successfully",
     "added_to_playlist": "Added to {name}",
-    "removed_from_playlist": "Removed from {name}"
+    "removed_from_playlist": "Removed from {name}",
+    "added_at": "Added",
+    "date_relative": {
+      "now": "just now",
+      "minutes": "{n}m ago",
+      "hours": "{n}h ago",
+      "days": "{n}d ago",
+      "weeks": "{n}w ago",
+      "months": "{n}mo ago | {n}mo ago",
+      "years": "{n}y ago | {n}y ago"
+    }
   },
   "dashboard": {
     "welcome": "Welcome back"

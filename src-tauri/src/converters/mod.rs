@@ -288,6 +288,7 @@ pub fn parse_track(json: &Value) -> Result<Track> {
                 .map(|s| s.to_string()),
             ..Default::default()
         },
+        added_at: None,
     })
 }
 

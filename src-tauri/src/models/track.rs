@@ -174,6 +174,10 @@ pub struct Track {
 
     /// Track identifiers.
     pub ids: IDs,
+
+    /// Date when the track was added to the library (optional, from DB).
+    #[serde(default)]
+    pub added_at: Option<String>,
 }
 
 fn default_track_type() -> String {
@@ -217,6 +221,7 @@ mod tests {
     fn test_track_duration_formatted() {
         let track = Track {
             duration_ms: 215000, // 3:35
+            added_at: None,
             ..Default::default()
         };
         assert_eq!(track.duration_formatted(), "03:35");
@@ -229,6 +234,7 @@ mod tests {
                 ArtistTrack::new("Artist One", "1"),
                 ArtistTrack::new("Artist Two", "2"),
             ],
+            added_at: None,
             ..Default::default()
         };
         assert_eq!(track.artists_string(", "), "Artist One, Artist Two");
@@ -238,6 +244,7 @@ mod tests {
     fn test_primary_artist() {
         let track = Track {
             artists: vec![ArtistTrack::new("Main Artist", "1")],
+            added_at: None,
             ..Default::default()
         };
         assert_eq!(track.primary_artist(), Some("Main Artist"));
