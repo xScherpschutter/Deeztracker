@@ -23,6 +23,39 @@ pub fn parse_release_date(date_str: &str) -> ReleaseDate {
 
 /// Extract images from cover/picture URLs in JSON.
 pub fn extract_images(json: &Value) -> Vec<Image> {
+    // 1. If md5_image is present, use it to generate all sizes (descending)
+    if let Some(md5) = json.get("md5_image").and_then(|v| v.as_str()) {
+        if !md5.is_empty() {
+            return vec![
+                Image::new(crate::api::public::DeezerApi::get_image_url(md5, "1000x1000"), 1000, 1000),
+                Image::new(crate::api::public::DeezerApi::get_image_url(md5, "500x500"), 500, 500),
+                Image::new(crate::api::public::DeezerApi::get_image_url(md5, "250x250"), 250, 250),
+                Image::new(crate::api::public::DeezerApi::get_image_url(md5, "56x56"), 56, 56),
+            ];
+        }
+    }
+
+    // 2. Try to extract MD5 from any existing URL field to generate all sizes (descending)
+    let url_fields = [
+        "cover_xl", "cover_big", "cover_medium", "cover_small",
+        "picture_xl", "picture_big", "picture_medium", "picture_small",
+        "cover", "picture"
+    ];
+
+    for field in url_fields {
+        if let Some(url) = json.get(field).and_then(|v| v.as_str()) {
+            if let Some((type_, md5)) = try_extract_md5_from_url(url) {
+                return vec![
+                    Image::new(format!("https://e-cdns-images.dzcdn.net/images/{}/{}/1000x1000-000000-80-0-0.jpg", type_, md5), 1000, 1000),
+                    Image::new(format!("https://e-cdns-images.dzcdn.net/images/{}/{}/500x500-000000-80-0-0.jpg", type_, md5), 500, 500),
+                    Image::new(format!("https://e-cdns-images.dzcdn.net/images/{}/{}/250x250-000000-80-0-0.jpg", type_, md5), 250, 250),
+                    Image::new(format!("https://e-cdns-images.dzcdn.net/images/{}/{}/56x56-000000-80-0-0.jpg", type_, md5), 56, 56),
+                ];
+            }
+        }
+    }
+
+    // 3. Fallback to individual fields if generation failed
     let mut images = Vec::new();
 
     // Cover images
@@ -54,6 +87,26 @@ pub fn extract_images(json: &Value) -> Vec<Image> {
     }
 
     images
+}
+
+/// Helper to extract image type (cover/artist/etc) and MD5 from a Deezer image URL.
+fn try_extract_md5_from_url(url: &str) -> Option<(String, String)> {
+    // Expected format: https://[host]/images/[type]/[md5]/[size]...
+    if !url.starts_with("https://") { return None; }
+    
+    let path_start = url.find("/images/")?;
+    let rest = &url[path_start + 8..]; // skip "/images/"
+    
+    let parts: Vec<&str> = rest.split('/').collect();
+    if parts.len() >= 2 {
+        let type_ = parts[0].to_string();
+        let md5 = parts[1].to_string();
+        if md5.len() >= 16 { // Basic sanity check for MD5
+            return Some((type_, md5));
+        }
+    }
+    
+    None
 }
 
 /// Extract genres from JSON.
