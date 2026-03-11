@@ -43,6 +43,15 @@ export const usePlaybackStore = defineStore('playback', {
 
   actions: {
     async playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {
+      // If the same track is already active, just resume if paused
+      if (this.currentTrack?.ids.deezer === track.ids.deezer) {
+        if (!this.isPlaying) {
+          PlaybackService.getInstance().seek(0);
+          this.startPlayback();
+        }
+        return;
+      }
+
       this.resetProgress();
       this.lyrics = [];
       // Set the queue based on context

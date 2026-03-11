@@ -37,7 +37,7 @@ const seekTo = (timeMs: number) => {
 <template>
   <div v-if="currentTrack" class="fixed inset-0 z-50 bg-black/95 text-white flex flex-col">
     <!-- Close Button -->
-    <div class="flex justify-end pt-8 pr-6 flex-shrink-0">
+    <div class="flex justify-end pt-12 pr-6 flex-shrink-0">
       <button @click="$emit('close')" class="p-2.5 hover:bg-white/10 rounded-full transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
