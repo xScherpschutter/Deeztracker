@@ -13,6 +13,8 @@ export class PlaybackService {
   private isSeeking = false;
   private hasPreTriggeredNext = false;
 
+  private currentPlayId = 0;
+
   private constructor() { }
 
   static getInstance(): PlaybackService {
@@ -56,12 +58,21 @@ export class PlaybackService {
     onPause: () => void,
     onProgress: (progress: number, duration: number) => void,
     onReady?: () => void,
+    onBuffering?: (isBuffering: boolean) => void,
   ) {
+    const playId = ++this.currentPlayId;
+
     // Resume if same track and audio hasn't ended yet
     if (this.currentTrackId === track.ids.deezer && this.audio && !this.audio.ended) {
+      onReady?.();
       this.safePlay(this.audio);
       return;
     }
+
+    const baseUrl = await this.getBaseUrl();
+
+    // If another play call has started, abort this one
+    if (playId !== this.currentPlayId) return;
 
     // Clean up previous audio
     this.cleanup();
@@ -82,7 +93,6 @@ export class PlaybackService {
         this.nextAudio = null;
         this.preloadedTrackId = null;
       }
-      const baseUrl = await this.getBaseUrl();
       const url = `${baseUrl}/stream/${track.ids.deezer}`;
       audio = new Audio(url);
     }
@@ -107,6 +117,15 @@ export class PlaybackService {
       }, { once: true });
     }
 
+    audio.addEventListener('waiting', () => {
+      onBuffering?.(true);
+    });
+
+    audio.addEventListener('playing', () => {
+      onBuffering?.(false);
+      onReady?.();
+    });
+
     audio.addEventListener('pause', () => {
       // Ignore pause events triggered by the browser during seeking
       if (this.isSeeking) return;
@@ -117,10 +136,12 @@ export class PlaybackService {
 
     audio.addEventListener('seeking', () => {
       this.isSeeking = true;
+      onBuffering?.(true);
     });
 
     audio.addEventListener('seeked', () => {
       this.isSeeking = false;
+      onBuffering?.(false);
       this.updatePlaybackState(!audio.paused, audio.currentTime);
       // Auto-resume playback after seek completes
       if (audio.paused && this.currentTrackId) {
@@ -136,6 +157,8 @@ export class PlaybackService {
 
     audio.addEventListener('error', (e) => {
       console.error('Playback error:', e);
+      onReady?.(); // Ensure buffering state is cleared on error
+      onBuffering?.(false);
     });
 
     this.safePlay(audio);

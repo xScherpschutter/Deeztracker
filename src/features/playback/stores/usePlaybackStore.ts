@@ -140,6 +140,7 @@ export const usePlaybackStore = defineStore('playback', {
           }
         },
         () => { this.isBuffering = false; },
+        (buffering) => { this.isBuffering = buffering; },
       );
 
       this.triggerPreload();
