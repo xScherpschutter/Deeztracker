@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router';
-import { useAuthStore } from '../features/auth/stores/useAuthStore';
 import { useI18n } from 'vue-i18n';
 import PlayerBar from '../features/playback/components/PlayerBar.vue';
 
 const { t } = useI18n();
-const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 
