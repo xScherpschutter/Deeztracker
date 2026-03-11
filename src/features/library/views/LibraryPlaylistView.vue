@@ -52,9 +52,9 @@ const removeFromPlaylist = async (trackId: string) => {
   <div class="h-full flex flex-col bg-background">
     <LoadingSpinner v-if="isLoading" size="lg" />
 
-    <div v-else-if="playlist" class="flex-1 overflow-y-auto custom-scrollbar">
+    <div v-else-if="playlist" class="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
       <!-- Hero Header -->
-      <div class="relative h-80 flex items-end p-8 gap-8 overflow-hidden bg-surface/30">
+      <div class="relative h-80 flex items-end p-8 gap-8 overflow-hidden bg-surface/30 flex-shrink-0">
         <div class="w-52 h-52 shadow-2xl rounded-lg z-10 relative bg-white/5 flex items-center justify-center flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
         </div>
@@ -70,7 +70,7 @@ const removeFromPlaylist = async (trackId: string) => {
       </div>
 
       <!-- Controls Row -->
-      <div class="p-8 flex items-center gap-6">
+      <div class="p-8 flex items-center gap-6 flex-shrink-0">
         <button 
           @click="playAll"
           class="w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all group"
@@ -82,8 +82,8 @@ const removeFromPlaylist = async (trackId: string) => {
       </div>
 
       <!-- Tracks Table -->
-      <div class="px-8 pb-12">
-        <div v-if="tracks.length === 0" class="text-center py-12 text-textGray">
+      <div class="px-8 pb-12 flex-1 flex flex-col">
+        <div v-if="tracks.length === 0" class="flex-1 flex flex-col items-center justify-center text-center text-textGray">
           <p>Esta playlist está vacía. Añade canciones desde la búsqueda.</p>
         </div>
         

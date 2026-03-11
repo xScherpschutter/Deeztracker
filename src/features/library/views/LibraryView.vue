@@ -83,11 +83,11 @@ const cancelDeletePlaylist = () => {
     </div>
 
     <!-- Tab Content -->
-    <div class="flex-1 overflow-y-auto custom-scrollbar pr-4">
+    <div class="flex-1 overflow-y-auto custom-scrollbar pr-4 flex flex-col">
       
       <!-- Favorites Tab -->
-      <div v-if="activeTab === 'favorites'" class="space-y-6">
-        <div v-if="libraryStore.favorites.length === 0" class="flex flex-col items-center justify-center py-20 opacity-50">
+      <div v-if="activeTab === 'favorites'" class="flex-1 flex flex-col space-y-6">
+        <div v-if="libraryStore.favorites.length === 0" class="flex-1 flex flex-col items-center justify-center opacity-50">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
           <p>{{ t('library.no_favorites') }}</p>
         </div>
@@ -139,7 +139,7 @@ const cancelDeletePlaylist = () => {
       </div>
 
       <!-- Playlists Tab -->
-      <div v-else-if="activeTab === 'playlists'" class="space-y-6">
+      <div v-else-if="activeTab === 'playlists'" class="flex-1 flex flex-col space-y-6">
         
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-xl font-bold">{{ t('library.playlists') }}</h2>
@@ -175,7 +175,7 @@ const cancelDeletePlaylist = () => {
           </div>
         </div>
 
-        <div v-if="libraryStore.playlists.length === 0 && !isCreatingPlaylist" class="flex flex-col items-center justify-center py-20 opacity-50">
+        <div v-if="libraryStore.playlists.length === 0 && !isCreatingPlaylist" class="flex-1 flex flex-col items-center justify-center opacity-50">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
           <p>{{ t('library.no_playlists') }}</p>
         </div>

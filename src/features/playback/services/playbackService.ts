@@ -100,13 +100,21 @@ export class PlaybackService {
     this.audio = audio;
     this.hasPreTriggeredNext = false;
 
-    // Event listeners
-    audio.addEventListener('play', () => {
+    const handlePlay = () => {
       onPlay();
       this.updateMediaMetadata(track);
       this.updatePlaybackState(true, audio.currentTime);
       this.startProgressTimer(onProgress);
-    });
+    };
+
+    // Event listeners
+    audio.addEventListener('play', handlePlay);
+
+    // If already playing (due to gapless pre-trigger), call handler immediately
+    // as the 'play' event won't fire again.
+    if (!audio.paused) {
+      handlePlay();
+    }
 
     // canplay: browser has enough data buffered to actually play and seek
     if (audio.readyState >= 3) { // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA
