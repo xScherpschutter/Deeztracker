@@ -2,6 +2,8 @@ import { defineStore } from 'pinia';
 import type { Track } from '../../search/models/search';
 import { PlaybackService } from '../services/playbackService';
 import { SearchService } from '../../search/services/searchService';
+import { invoke } from '@tauri-apps/api/core';
+import { LrcParser, type LrcLine } from '../utils/lrcParser';
 
 export const usePlaybackStore = defineStore('playback', {
   state: () => ({
@@ -15,6 +17,8 @@ export const usePlaybackStore = defineStore('playback', {
     repeatMode: 'off' as 'off' | 'one' | 'all',
     isShuffle: false,
     shuffledIndices: [] as number[],
+    lyrics: [] as LrcLine[],
+    isLoadingLyrics: false,
   }),
 
   getters: {
@@ -23,6 +27,9 @@ export const usePlaybackStore = defineStore('playback', {
         return this.queue[this.currentIndex];
       }
       return null;
+    },
+    currentLineIndex(): number {
+      return LrcParser.getActiveLineIndex(this.lyrics, this.progress * 1000);
     },
     hasNext(): boolean {
       if (this.repeatMode === 'all') return this.queue.length > 0;
@@ -37,6 +44,7 @@ export const usePlaybackStore = defineStore('playback', {
   actions: {
     async playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {
       this.resetProgress();
+      this.lyrics = [];
       // Set the queue based on context
       if (context) {
         this.queue = context.items;
@@ -63,6 +71,9 @@ export const usePlaybackStore = defineStore('playback', {
       this.duration = track.duration_ms / 1000;
       this.isBuffering = true;
 
+      // Fetch lyrics in parallel
+      this.fetchLyrics(track);
+
       const service = PlaybackService.getInstance();
       await service.play(
         track,
@@ -71,13 +82,34 @@ export const usePlaybackStore = defineStore('playback', {
         () => this.isPlaying = false,
         (progress, browserDuration) => {
           this.progress = progress;
-          // Only trust browser duration if it's a valid number and finite
+          // Only trust browser duration if it's a browser valid number and finite
           if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
             this.duration = browserDuration;
           }
         },
         () => { this.isBuffering = false; },
       );
+    },
+
+    async fetchLyrics(track: Track) {
+      this.isLoadingLyrics = true;
+      this.lyrics = [];
+      try {
+        const lrcContent = await invoke<string | null>('get_lyrics', {
+          artist: track.artists[0]?.name || '',
+          title: track.title,
+          album: track.album.title,
+          durationMs: track.duration_ms
+        });
+
+        if (lrcContent) {
+          this.lyrics = LrcParser.parse(lrcContent);
+        }
+      } catch (e) {
+        console.error('Failed to fetch lyrics:', e);
+      } finally {
+        this.isLoadingLyrics = false;
+      }
     },
 
     togglePlay() {

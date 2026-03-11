@@ -2,10 +2,12 @@
 import { ref } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { formatDuration } from '../../search/utils/time';
+import FullscreenPlayer from '../views/FullscreenPlayer.vue';
 
 const playbackStore = usePlaybackStore();
 const isSeeking = ref(false);
 const seekValue = ref(0);
+const showFullscreen = ref(false);
 
 const onSeekInput = (e: Event) => {
   isSeeking.value = true;
@@ -29,16 +31,33 @@ const onVolumeChange = (e: Event) => {
 
 <template>
   <footer class="h-24 bg-surface border-t border-white/5 px-8 flex items-center justify-between flex-shrink-0 z-20">
+    <!-- Fullscreen View -->
+    <Teleport to="body">
+      <Transition 
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-y-full"
+        enter-to-class="translate-y-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-y-0"
+        leave-to-class="translate-y-full"
+      >
+        <FullscreenPlayer v-if="showFullscreen" @close="showFullscreen = false" />
+      </Transition>
+    </Teleport>
+
     <!-- Track Info -->
-    <div class="flex items-center gap-4 w-1/3 min-w-0">
-      <div v-if="playbackStore.currentTrack" class="w-14 h-14 bg-background rounded-lg overflow-hidden flex-shrink-0">
-        <img :src="playbackStore.currentTrack.album.images[0]?.url" alt="Cover" class="w-full h-full object-cover">
+    <div class="flex items-center gap-4 w-1/3 min-w-0 group cursor-pointer" @click="showFullscreen = true">
+      <div v-if="playbackStore.currentTrack" class="w-14 h-14 bg-background rounded-lg overflow-hidden flex-shrink-0 relative">
+        <img :src="playbackStore.currentTrack.album.images[0]?.url" alt="Cover" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="m15 3 6 6-6 6"/><path d="M9 21 3 15l6-6"/><path d="M21 9H9s-4 0-4 4v8"/><path d="M3 15h12s4 0 4-4V3"/></svg>
+        </div>
       </div>
       <div v-else class="w-14 h-14 bg-white/5 rounded-lg flex-shrink-0"></div>
       
       <div class="min-w-0">
         <template v-if="playbackStore.currentTrack">
-          <div class="text-sm font-bold truncate hover:underline cursor-pointer">
+          <div class="text-sm font-bold truncate hover:underline">
             {{ playbackStore.currentTrack.title }}
           </div>
           <div class="text-xs text-textGray truncate">

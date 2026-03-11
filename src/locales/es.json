@@ -40,6 +40,15 @@
   "dashboard": {
     "welcome": "Bienvenido de nuevo"
   },
+  "player": {
+    "lyrics": "Letras",
+    "no_lyrics": "Letras no disponibles",
+    "searching_lyrics": "Buscando letras...",
+    "unknown_artist": "Artista desconocido",
+    "unknown_album": "Álbum desconocido",
+    "lyrics_not_available": "Letras no disponibles",
+    "back": "Volver"
+  },
   "app_bar": {
     "back": "Atrás",
     "forward": "Adelante",

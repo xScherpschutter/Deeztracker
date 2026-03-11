@@ -40,6 +40,15 @@
   "dashboard": {
     "welcome": "Welcome back"
   },
+  "player": {
+    "lyrics": "Lyrics",
+    "no_lyrics": "Lyrics not available",
+    "searching_lyrics": "Searching lyrics...",
+    "unknown_artist": "Unknown Artist",
+    "unknown_album": "Unknown Album",
+    "lyrics_not_available": "Lyrics not available",
+    "back": "Back"
+  },
   "app_bar": {
     "back": "Back",
     "forward": "Forward",
