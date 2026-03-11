@@ -505,7 +505,8 @@ pub fn run() {
             get_track_radio,
             update_media_metadata,
             update_playback_state,
-            get_streaming_base_url
+            get_streaming_base_url,
+            api::lyrics::get_lyrics
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

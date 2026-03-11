@@ -5,6 +5,7 @@
 //! - [`GatewayApi`]: Gateway API for authenticated operations
 
 pub mod gateway;
+pub mod lyrics;
 pub mod public;
 
 pub use gateway::GatewayApi;
