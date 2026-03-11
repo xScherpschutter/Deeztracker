@@ -16,11 +16,6 @@ const isActive = (name: string) => route.name === name || route.path.startsWith(
   <div class="flex h-screen overflow-hidden pt-10 bg-background text-white">
     <!-- Sidebar -->
     <aside class="w-64 bg-surface border-r border-white/5 p-6 flex flex-col flex-shrink-0">
-      <h2 class="text-xl font-bold text-primary mb-8 flex items-center gap-2">
-        <div class="w-2 h-6 bg-primary rounded-full"></div>
-        Deeztracker
-      </h2>
-      
       <nav class="flex-1 space-y-2">
         <button 
           @click="router.push('/dashboard')"
