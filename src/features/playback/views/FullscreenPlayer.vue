@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePlaybackStore } from '../stores/usePlaybackStore';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, nextTick } from 'vue';
 
 const store = usePlaybackStore();
 const lyricsList = ref<HTMLElement | null>(null);
@@ -9,16 +9,37 @@ const currentTrack = computed(() => store.currentTrack);
 const lyrics = computed(() => store.lyrics);
 const currentIndex = computed(() => store.currentLineIndex);
 
-// Auto-scroll lyrics to the active line
-watch(currentIndex, (newIndex) => {
-  if (newIndex >= 0 && lyricsList.value) {
+const scrollToActiveLine = (index: number, smooth: boolean = true) => {
+  if (index >= 0 && lyricsList.value) {
     const lines = lyricsList.value.querySelectorAll('.lyric-line');
-    if (lines[newIndex]) {
-      lines[newIndex].scrollIntoView({
-        behavior: 'smooth',
+    if (lines[index]) {
+      lines[index].scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
         block: 'center'
       });
     }
+  }
+};
+
+// Auto-scroll lyrics to the active line when it changes
+watch(currentIndex, (newIndex) => {
+  scrollToActiveLine(newIndex, true);
+});
+
+// Scroll to the active line immediately when the component opens
+onMounted(async () => {
+  if (lyrics.value.length > 0) {
+    // Wait for the DOM to render the lyric lines
+    await nextTick();
+    scrollToActiveLine(currentIndex.value, false);
+  }
+});
+
+// Also watch for when lyrics finish loading while the player is already open
+watch(lyrics, async (newLyrics) => {
+  if (newLyrics.length > 0) {
+    await nextTick();
+    scrollToActiveLine(currentIndex.value, false);
   }
 });
 
