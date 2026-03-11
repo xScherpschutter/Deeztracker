@@ -21,6 +21,16 @@ const router = createRouter({
           component: () => import('../features/search/views/SearchView.vue')
         },
         {
+          path: 'library',
+          name: 'library',
+          component: () => import('../features/library/views/LibraryView.vue')
+        },
+        {
+          path: 'library/playlist/:id',
+          name: 'library-playlist',
+          component: () => import('../features/library/views/LibraryPlaylistView.vue')
+        },
+        {
           path: 'album/:id',
           name: 'album-detail',
           component: () => import('../features/search/views/AlbumDetailView.vue')

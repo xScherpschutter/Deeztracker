@@ -2,14 +2,18 @@
 import { onMounted } from 'vue';
 import { useAuthStore } from './features/auth/stores/useAuthStore';
 import { useSettingsStore } from './features/dashboard/stores/useSettingsStore';
+import { useLibraryStore } from './features/library/stores/useLibraryStore';
 import { useI18n } from 'vue-i18n';
 import AppBar from './components/AppBar.vue';
 
 const authStore = useAuthStore();
 const settingsStore = useSettingsStore();
+const libraryStore = useLibraryStore();
 const { locale } = useI18n();
 
 onMounted(async () => {
+  // Initialize library (favorites and playlists)
+  await libraryStore.init();
   // Set initial locale from saved settings
   locale.value = settingsStore.language;
 });

@@ -32,9 +32,15 @@ const isActive = (name: string) => route.name === name || route.path.startsWith(
           {{ t('nav.search') }}
         </button>
         
-        <div class="pt-6 pb-2 px-4 text-[10px] font-bold text-textGray/40 uppercase tracking-widest">{{ t('nav.library') }}</div>
         <div class="space-y-1">
-          <div class="h-10 px-4 flex items-center gap-4 text-textGray/40 text-sm italic">{{ t('nav.coming_soon') }}</div>
+          <button 
+            @click="router.push('/library')"
+            class="w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all font-medium text-sm group"
+            :class="isActive('library') ? 'bg-primary/10 text-primary' : 'text-textGray hover:text-white hover:bg-white/5'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            {{ t('library.title') }}
+          </button>
         </div>
       </nav>
     </aside>

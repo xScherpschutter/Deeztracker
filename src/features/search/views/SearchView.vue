@@ -2,18 +2,29 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useSearchStore } from '../stores/useSearchStore';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
-import type { SearchType } from '../models/search';
+import { useLibraryStore } from '../../library/stores/useLibraryStore';
+import type { SearchType, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { formatDuration } from '../utils/time';
 import { getImageUrl } from '../utils/image';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import AddToPlaylistModal from '../../library/components/AddToPlaylistModal.vue';
 
 const { t } = useI18n();
 const searchStore = useSearchStore();
 const playbackStore = usePlaybackStore();
+const libraryStore = useLibraryStore();
 const router = useRouter();
 const scrollContainer = ref<HTMLElement | null>(null);
+
+const isPlaylistModalOpen = ref(false);
+const selectedTrack = ref<Track | null>(null);
+
+const openPlaylistModal = (track: Track) => {
+  selectedTrack.value = track;
+  isPlaylistModalOpen.value = true;
+};
 
 const hasNoResults = computed(() => 
   !searchStore.isLoading && searchStore.query.length > 1 && 
@@ -139,8 +150,21 @@ onUnmounted(() => {
                 <div class="hidden md:block flex-1 min-w-0 px-4 hover:underline" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
                   <p class="text-xs text-textGray truncate">{{ track.album.title }}</p>
                 </div>
-                <div class="text-xs text-textGray font-mono tabular-nums pr-2">
-                  {{ formatDuration(track.duration_ms) }}
+                <div class="flex items-center justify-end gap-3 pr-2">
+                  <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      @click.stop="libraryStore.toggleFavorite(track)" 
+                      class="p-1 hover:bg-white/10 rounded-full transition-colors"
+                      :class="libraryStore.isTrackFavorite(track.ids.deezer) ? 'text-primary' : 'text-textGray hover:text-white'"
+                    >
+                      <svg v-if="libraryStore.isTrackFavorite(track.ids.deezer)" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                    </button>
+                    <button @click.stop="openPlaylistModal(track)" class="p-1 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    </button>
+                  </div>
+                  <span class="text-xs text-textGray font-mono tabular-nums w-10 text-right">{{ formatDuration(track.duration_ms) }}</span>
                 </div>
               </div>
             </div>
@@ -232,6 +256,8 @@ onUnmounted(() => {
 
       </div>
     </div>
+    
+    <AddToPlaylistModal :is-open="isPlaylistModalOpen" :track="selectedTrack" @close="isPlaylistModalOpen = false" />
   </div>
 </template>
 

@@ -2,12 +2,14 @@
 pub mod api;
 pub mod converters;
 pub mod crypto;
+pub mod database;
 pub mod error;
 pub mod models;
 mod rusteer;
 pub mod tagging;
 
 pub use api::{DeezerApi, GatewayApi};
+pub use database::{DbState};
 pub use error::DeezerError;
 pub use models::{Album, Artist, Playlist, Track};
 pub use rusteer::{BatchDownloadResult, DownloadQuality, DownloadResult, Rusteer};
@@ -464,6 +466,11 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
         .setup(|app| {
+            // Initialize Database
+            let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+            let conn = database::init(app_data_dir).expect("Failed to initialize database");
+            app.manage(database::DbState(std::sync::Mutex::new(conn)));
+
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
@@ -589,7 +596,16 @@ pub fn run() {
             update_playback_state,
             get_streaming_base_url,
             get_charts,
-            api::lyrics::get_lyrics
+            api::lyrics::get_lyrics,
+            database::toggle_favorite,
+            database::get_favorites,
+            database::is_favorite,
+            database::create_playlist,
+            database::delete_playlist,
+            database::get_playlists,
+            database::add_track_to_playlist,
+            database::remove_track_from_playlist,
+            database::get_playlist_tracks
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

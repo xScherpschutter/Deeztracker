@@ -77,15 +77,19 @@ pub struct AlbumTrack {
     pub type_: String,
 
     /// Album type: "album", "single", or "compilation".
+    #[serde(default)]
     pub album_type: String,
 
     /// Album title.
+    #[serde(default)]
     pub title: String,
 
     /// Release date.
+    #[serde(default)]
     pub release_date: ReleaseDate,
 
     /// Total number of tracks in the album.
+    #[serde(default)]
     pub total_tracks: u32,
 
     /// Total number of discs in the album.
@@ -137,6 +141,7 @@ pub struct Track {
     pub type_: String,
 
     /// Track title.
+    #[serde(default)]
     pub title: String,
 
     /// Disc number (1-indexed).
@@ -148,6 +153,7 @@ pub struct Track {
     pub track_number: u32,
 
     /// Duration in milliseconds.
+    #[serde(default)]
     pub duration_ms: u64,
 
     /// Whether the track has explicit content.
@@ -159,6 +165,7 @@ pub struct Track {
     pub genres: Vec<String>,
 
     /// Album containing this track.
+    #[serde(default)]
     pub album: AlbumTrack,
 
     /// Artists who performed this track.

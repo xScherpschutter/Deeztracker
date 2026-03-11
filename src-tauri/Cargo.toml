@@ -42,6 +42,9 @@ rand = "0.8"
 # Error handling
 thiserror = "2"
 
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # Cryptography
 md-5 = "0.10"
 sha1 = "0.10"
