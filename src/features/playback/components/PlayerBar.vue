@@ -5,7 +5,6 @@ import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { formatDuration } from '../../search/utils/time';
 import FullscreenPlayer from '../views/FullscreenPlayer.vue';
 import AddToPlaylistModal from '../../library/components/AddToPlaylistModal.vue';
-import type { Track } from '../../search/models/search';
 
 const playbackStore = usePlaybackStore();
 const libraryStore = useLibraryStore();
@@ -57,7 +56,7 @@ const openPlaylistModal = () => {
     </Teleport>
 
     <!-- Track Info -->
-    <div class="flex items-center gap-4 w-1/3 min-w-0">
+    <div class="flex items-center gap-4 w-1/3 min-w-0 overflow-hidden">
       <div class="flex items-center gap-4 group cursor-pointer" @click="showFullscreen = true">
         <div v-if="playbackStore.currentTrack" class="w-14 h-14 bg-background rounded-lg overflow-hidden flex-shrink-0 relative">
           <img :src="playbackStore.currentTrack.album.images[0]?.url" alt="Cover" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
@@ -84,7 +83,7 @@ const openPlaylistModal = () => {
       </div>
       
       <!-- Library Actions -->
-      <div v-if="playbackStore.currentTrack" class="flex items-center gap-2 ml-2">
+      <div v-if="playbackStore.currentTrack" class="flex items-center gap-2 ml-2 flex-shrink-0">
         <button 
           @click.stop="libraryStore.toggleFavorite(playbackStore.currentTrack)" 
           class="p-1.5 hover:bg-white/10 rounded-full transition-colors"
