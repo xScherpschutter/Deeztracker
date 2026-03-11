@@ -72,6 +72,14 @@ pub struct Artist {
     /// Albums by this artist.
     #[serde(default)]
     pub albums: Vec<AlbumArtist>,
+
+    /// Number of albums.
+    #[serde(default)]
+    pub nb_album: u32,
+
+    /// Number of fans.
+    #[serde(default)]
+    pub nb_fan: u32,
 }
 
 fn default_artist_type() -> String {

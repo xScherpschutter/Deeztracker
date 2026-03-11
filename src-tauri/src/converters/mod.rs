@@ -520,6 +520,8 @@ pub fn parse_artist(json: &Value) -> Result<Artist> {
         images: extract_images(json),
         ids: IDs::with_deezer(id.unwrap_or_default()),
         albums: Vec::new(), // Would need separate API call for discography
+        nb_album: get_u32(json, "nb_album"),
+        nb_fan: get_u32(json, "nb_fan"),
     })
 }
 
