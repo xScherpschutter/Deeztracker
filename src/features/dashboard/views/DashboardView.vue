@@ -45,7 +45,6 @@ onMounted(async () => {
       <!-- Welcome Hero -->
       <section class="mb-12">
         <h1 class="text-4xl font-black mb-2 tracking-tight">{{ t("dashboard.welcome") }}</h1>
-        <p class="text-textGray">{{ t("search.categories.all") }}</p>
       </section>
 
       <!-- Top Albums -->
