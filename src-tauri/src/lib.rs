@@ -532,9 +532,10 @@ pub fn run() {
 
             let runtime_handle = tokio::runtime::Handle::current();
             std::thread::spawn(move || {
-                // Cache: track_id -> path to temp file with decrypted audio
-                let file_cache: Arc<std::sync::Mutex<HashMap<String, PathBuf>>> =
-                    Arc::new(std::sync::Mutex::new(HashMap::new()));
+                // Cache: (order_of_insertion, track_id -> path to temp file)
+                // Allows up to 3 tracks to support prebuffering the next track
+                let file_cache: Arc<std::sync::Mutex<(Vec<String>, HashMap<String, PathBuf>)>> =
+                    Arc::new(std::sync::Mutex::new((Vec::new(), HashMap::new())));
 
                 for request in server.incoming_requests() {
                     let url = request.url().to_string();
@@ -548,7 +549,7 @@ pub fn run() {
                             // Check cache first
                             let cached_path = {
                                 let guard = cache.lock().unwrap();
-                                guard.get(&track_id).cloned()
+                                guard.1.get(&track_id).cloned()
                             };
 
                             if let Some(path) = cached_path {
@@ -559,23 +560,28 @@ pub fn run() {
                                 }
                                 // File was deleted, remove from cache
                                 let mut guard = cache.lock().unwrap();
-                                guard.remove(&track_id);
+                                guard.1.remove(&track_id);
+                                guard.0.retain(|id| id != &track_id);
                             }
 
                             // Download + decrypt to temp file
                             if let Some(tmp_path) =
                                 download_track_to_tempfile(&track_id, &state, &handle)
                             {
-                                // Clean up old cached files (keep only the current track)
+                                // Clean up old cached files, keeping maximum of 3 tracks
                                 {
                                     let mut guard = cache.lock().unwrap();
-                                    let old_keys: Vec<String> = guard.keys().cloned().collect();
-                                    for old_key in old_keys {
-                                        if let Some(old_path) = guard.remove(&old_key) {
-                                            let _ = std::fs::remove_file(&old_path);
+                                    guard.0.push(track_id.clone());
+                                    guard.1.insert(track_id.clone(), tmp_path.clone());
+
+                                    while guard.0.len() > 3 {
+                                        if let Some(old_track_id) = guard.0.first().cloned() {
+                                            guard.0.remove(0);
+                                            if let Some(old_path) = guard.1.remove(&old_track_id) {
+                                                let _ = std::fs::remove_file(&old_path);
+                                            }
                                         }
                                     }
-                                    guard.insert(track_id.clone(), tmp_path.clone());
                                 }
                                 serve_file_request(request, &tmp_path);
                             } else {

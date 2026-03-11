@@ -40,6 +40,24 @@ export const usePlaybackStore = defineStore('playback', {
     hasPrev(): boolean {
       if (this.repeatMode === 'all') return this.queue.length > 0;
       return this.currentIndex > 0;
+    },
+    nextTrackInQueue(): Track | null {
+      if (this.queue.length === 0) return null;
+      if (this.isShuffle) {
+        const currentShufflePos = this.shuffledIndices.indexOf(this.currentIndex);
+        if (currentShufflePos < this.shuffledIndices.length - 1) {
+          return this.queue[this.shuffledIndices[currentShufflePos + 1]];
+        } else if (this.repeatMode === 'all') {
+          return this.queue[this.shuffledIndices[0]];
+        }
+      } else {
+        if (this.currentIndex < this.queue.length - 1) {
+          return this.queue[this.currentIndex + 1];
+        } else if (this.repeatMode === 'all') {
+          return this.queue[0];
+        }
+      }
+      return null;
     }
   },
 
@@ -124,6 +142,15 @@ export const usePlaybackStore = defineStore('playback', {
         },
         () => { this.isBuffering = false; },
       );
+      
+      this.triggerPreload();
+    },
+
+    triggerPreload() {
+      const nextTrack = this.nextTrackInQueue;
+      if (nextTrack) {
+        PlaybackService.getInstance().preload(nextTrack);
+      }
     },
 
     async fetchLyrics(track: Track) {

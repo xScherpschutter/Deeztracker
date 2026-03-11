@@ -5,7 +5,9 @@ import { getImageUrl } from '../../search/utils/image';
 export class PlaybackService {
   private static instance: PlaybackService;
   private audio: HTMLAudioElement | null = null;
+  private nextAudio: HTMLAudioElement | null = null;
   private currentTrackId: string | null = null;
+  private preloadedTrackId: string | null = null;
   private baseUrl: string | null = null;
   private animationFrameId: number | null = null;
   private isSeeking = false;
@@ -27,6 +29,24 @@ export class PlaybackService {
     return this.baseUrl;
   }
 
+  async preload(track: Track) {
+    if (!track.ids.deezer || this.preloadedTrackId === track.ids.deezer) return;
+    
+    // Cleanup old preloaded audio
+    if (this.nextAudio) {
+      this.nextAudio.removeAttribute('src');
+      this.nextAudio.load();
+      this.nextAudio = null;
+    }
+
+    this.preloadedTrackId = track.ids.deezer;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/stream/${track.ids.deezer}`;
+    
+    this.nextAudio = new Audio(url);
+    this.nextAudio.preload = "auto";
+  }
+
   async play(
     track: Track,
     onEnd: () => void,
@@ -45,10 +65,19 @@ export class PlaybackService {
     this.cleanup();
 
     this.currentTrackId = track.ids.deezer || null;
-    const baseUrl = await this.getBaseUrl();
-    const url = `${baseUrl}/stream/${track.ids.deezer}`;
-
-    const audio = new Audio(url);
+    
+    // Use preloaded audio if it matches the requested track
+    let audio: HTMLAudioElement;
+    if (this.nextAudio && this.preloadedTrackId === track.ids.deezer) {
+      audio = this.nextAudio;
+      this.nextAudio = null;
+      this.preloadedTrackId = null;
+    } else {
+      const baseUrl = await this.getBaseUrl();
+      const url = `${baseUrl}/stream/${track.ids.deezer}`;
+      audio = new Audio(url);
+    }
+    
     this.audio = audio;
 
     // Event listeners
@@ -60,9 +89,13 @@ export class PlaybackService {
     });
 
     // canplay: browser has enough data buffered to actually play and seek
-    audio.addEventListener('canplay', () => {
+    if (audio.readyState >= 3) { // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA
       onReady?.();
-    }, { once: true });
+    } else {
+      audio.addEventListener('canplay', () => {
+        onReady?.();
+      }, { once: true });
+    }
 
     audio.addEventListener('pause', () => {
       // Ignore pause events triggered by the browser during seeking
