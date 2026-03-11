@@ -6,7 +6,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 
-const props = defineProps<{
+const _props = defineProps<{
   isOpen: boolean
 }>();
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 
-const props = defineProps<{
+const _props = defineProps<{
   isOpen: boolean;
   title: string;
   message: string;

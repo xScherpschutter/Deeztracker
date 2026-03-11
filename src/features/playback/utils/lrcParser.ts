@@ -62,8 +62,7 @@ export class LrcParser {
     if (lyrics[0].timeMs === Number.MAX_SAFE_INTEGER) return -1;
 
     let low = 0;
-    let high = lyrics.size - 1; // Wait, size is for Java, use length
-    high = lyrics.length - 1;
+    let high = lyrics.length - 1;
     let result = -1;
 
     while (low <= high) {

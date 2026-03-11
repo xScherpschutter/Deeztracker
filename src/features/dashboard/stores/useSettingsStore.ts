@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia';
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { useI18n } from 'vue-i18n';
 
 export const useSettingsStore = defineStore('settings', () => {
   const audioQuality = ref(localStorage.getItem('settings_audio_quality') || 'MP3_128');
   const language = ref(localStorage.getItem('settings_language') || 'es');
-  
+
   // Use i18n if called within a component, otherwise we'll handle it in the init
   const setLanguage = (lang: string) => {
     language.value = lang;
