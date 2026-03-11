@@ -63,4 +63,13 @@ export class SearchService {
   static async getTrackRadio(id: string): Promise<Track[]> {
     return await invoke<Track[]>('get_track_radio', { id });
   }
+
+  static async getCharts(): Promise<{
+    tracks: Track[];
+    albums: Album[];
+    artists: Artist[];
+    playlists: Playlist[];
+  }> {
+    return await invoke('get_charts');
+  }
 }

@@ -611,6 +611,11 @@ impl DeezerApi {
         self.get_api(&format!("episode/{}", episode_id)).await
     }
 
+    /// Get global charts (top tracks, albums, artists, playlists).
+    pub async fn get_charts(&self) -> Result<Value> {
+        self.get_api("chart").await
+    }
+
     /// Get the cover image URL for a given MD5 hash.
     pub fn get_image_url(md5_image: &str, size: &str) -> String {
         COVER_URL_TEMPLATE
