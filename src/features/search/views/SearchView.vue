@@ -15,6 +15,11 @@ const playbackStore = usePlaybackStore();
 const router = useRouter();
 const scrollContainer = ref<HTMLElement | null>(null);
 
+const hasNoResults = computed(() => 
+  !searchStore.isLoading && searchStore.query.length > 1 && 
+  Object.values(searchStore.results).every(r => r.length === 0)
+);
+
 const categories = computed<{ label: string; value: SearchType }[]>(() => [
   { label: t('search.categories.all'), value: 'all' },
   { label: t('search.categories.tracks'), value: 'tracks' },
@@ -90,9 +95,15 @@ onUnmounted(() => {
       <LoadingSpinner v-if="searchStore.isLoading" size="lg" />
 
       <!-- Empty State -->
-      <div v-else-if="!searchStore.query" class="flex flex-col items-center justify-center h-64 opacity-40">
+      <div v-else-if="!searchStore.query" class="flex flex-col items-center justify-center h-full opacity-40">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <p class="text-lg">{{ t('search.empty_state') }}</p>
+      </div>
+
+      <!-- No Results -->
+      <div v-else-if="hasNoResults" class="flex flex-col items-center justify-center h-full opacity-60 px-4 text-center">
+        <p class="text-xl font-medium">{{ t('search.no_results', { query: searchStore.query }) }}</p>
+        <p class="text-sm text-textGray mt-2">{{ t('search.no_results_help') }}</p>
       </div>
 
       <!-- Results Content -->
@@ -218,11 +229,6 @@ onUnmounted(() => {
           <div class="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
         </div>
 
-        <!-- No Results for Query -->
-        <div v-if="!searchStore.isLoading && searchStore.query.length > 1 && Object.values(searchStore.results).every(r => r.length === 0)" class="flex flex-col items-center justify-center h-64 opacity-60 px-4 text-center">
-           <p class="text-xl font-medium">{{ t('search.no_results', { query: searchStore.query }) }}</p>
-           <p class="text-sm text-textGray mt-2">{{ t('search.no_results_help') }}</p>
-        </div>
 
       </div>
     </div>
