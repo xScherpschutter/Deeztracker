@@ -194,6 +194,16 @@ export const usePlaybackStore = defineStore('playback', {
       PlaybackService.getInstance().setVolume(volume);
     },
 
+    stop() {
+      const service = PlaybackService.getInstance();
+      service.pause(); // HTMLAudioElement pause is effective stop
+      this.isPlaying = false;
+      this.currentIndex = -1;
+      this.queue = [];
+      this.resetProgress();
+      this.lyrics = [];
+    },
+
     toggleShuffle() {
       this.isShuffle = !this.isShuffle;
       if (this.isShuffle) {

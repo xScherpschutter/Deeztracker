@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { AuthService } from '../services/authService';
+import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 
 const ARL_KEY = 'deeztracker_arl';
 
@@ -9,6 +10,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticating = ref(false);
   const isInitialized = ref(false);
   const authError = ref<string | null>(null);
+
+  const playbackStore = usePlaybackStore();
 
   async function login(arl: string, save: boolean = true) {
     if (!arl) return;
@@ -35,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    playbackStore.stop();
     isAuthenticated.value = false;
     localStorage.removeItem(ARL_KEY);
   }
