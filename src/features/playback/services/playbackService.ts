@@ -11,7 +11,6 @@ export class PlaybackService {
   private baseUrl: string | null = null;
   private animationFrameId: number | null = null;
   private isSeeking = false;
-  private lastPositionSent = -1;
   private hasPreTriggeredNext = false;
 
   private constructor() { }
@@ -32,7 +31,7 @@ export class PlaybackService {
 
   async preload(track: Track) {
     if (!track.ids.deezer || this.preloadedTrackId === track.ids.deezer) return;
-    
+
     // Cleanup old preloaded audio
     if (this.nextAudio) {
       this.nextAudio.pause();
@@ -45,7 +44,7 @@ export class PlaybackService {
     this.hasPreTriggeredNext = false;
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}/stream/${track.ids.deezer}`;
-    
+
     this.nextAudio = new Audio(url);
     this.nextAudio.preload = "auto";
   }
@@ -58,8 +57,8 @@ export class PlaybackService {
     onProgress: (progress: number, duration: number) => void,
     onReady?: () => void,
   ) {
-    // Resume if same track
-    if (this.currentTrackId === track.ids.deezer && this.audio) {
+    // Resume if same track and audio hasn't ended yet
+    if (this.currentTrackId === track.ids.deezer && this.audio && !this.audio.ended) {
       this.safePlay(this.audio);
       return;
     }
@@ -68,7 +67,7 @@ export class PlaybackService {
     this.cleanup();
 
     this.currentTrackId = track.ids.deezer || null;
-    
+
     // Use preloaded audio if it matches the requested track
     let audio: HTMLAudioElement;
     if (this.nextAudio && this.preloadedTrackId === track.ids.deezer) {
@@ -87,7 +86,7 @@ export class PlaybackService {
       const url = `${baseUrl}/stream/${track.ids.deezer}`;
       audio = new Audio(url);
     }
-    
+
     this.audio = audio;
     this.hasPreTriggeredNext = false;
 
@@ -181,7 +180,6 @@ export class PlaybackService {
       this.audio.load(); // Release resources
       this.audio = null;
     }
-    this.lastPositionSent = -1;
   }
 
   private startProgressTimer(onProgress: (progress: number, duration: number) => void) {
@@ -191,7 +189,7 @@ export class PlaybackService {
         const currentTime = this.audio.currentTime;
         const duration = this.audio.duration || 0;
         onProgress(currentTime, isFinite(duration) ? duration : 0);
-        
+
         // Gapless playback overlap logic (crossfade)
         // If we are within 150ms of the track ending, start playing the preloaded track early
         if (duration > 0 && !this.hasPreTriggeredNext && this.nextAudio && this.nextAudio.readyState >= 3) {
@@ -219,7 +217,7 @@ export class PlaybackService {
   private async updateMediaMetadata(track: Track) {
     try {
       const coverUrl = getImageUrl(track.album?.images, '');
-      
+
       // 1. Update OS via Souvlaki (Rust)
       await invoke('update_media_metadata', {
         title: track.title,

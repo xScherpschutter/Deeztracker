@@ -90,7 +90,6 @@ export const usePlaybackStore = defineStore('playback', {
       // If the same track is already active, just resume if paused
       if (this.currentTrack?.ids.deezer === track.ids.deezer) {
         if (!this.isPlaying) {
-          PlaybackService.getInstance().seek(0);
           this.startPlayback();
         }
         return;
@@ -142,7 +141,7 @@ export const usePlaybackStore = defineStore('playback', {
         },
         () => { this.isBuffering = false; },
       );
-      
+
       this.triggerPreload();
     },
 
