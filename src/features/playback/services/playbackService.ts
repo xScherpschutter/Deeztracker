@@ -12,6 +12,7 @@ export class PlaybackService {
   private animationFrameId: number | null = null;
   private isSeeking = false;
   private lastPositionSent = -1;
+  private hasPreTriggeredNext = false;
 
   private constructor() { }
 
@@ -34,12 +35,14 @@ export class PlaybackService {
     
     // Cleanup old preloaded audio
     if (this.nextAudio) {
+      this.nextAudio.pause();
       this.nextAudio.removeAttribute('src');
       this.nextAudio.load();
       this.nextAudio = null;
     }
 
     this.preloadedTrackId = track.ids.deezer;
+    this.hasPreTriggeredNext = false;
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}/stream/${track.ids.deezer}`;
     
@@ -73,12 +76,20 @@ export class PlaybackService {
       this.nextAudio = null;
       this.preloadedTrackId = null;
     } else {
+      if (this.nextAudio) {
+        this.nextAudio.pause();
+        this.nextAudio.removeAttribute('src');
+        this.nextAudio.load();
+        this.nextAudio = null;
+        this.preloadedTrackId = null;
+      }
       const baseUrl = await this.getBaseUrl();
       const url = `${baseUrl}/stream/${track.ids.deezer}`;
       audio = new Audio(url);
     }
     
     this.audio = audio;
+    this.hasPreTriggeredNext = false;
 
     // Event listeners
     audio.addEventListener('play', () => {
@@ -148,6 +159,9 @@ export class PlaybackService {
     if (this.audio) {
       this.audio.volume = volume;
     }
+    if (this.nextAudio) {
+      this.nextAudio.volume = volume;
+    }
   }
 
   /** Play with AbortError handling (normal when play is interrupted by seek) */
@@ -177,6 +191,18 @@ export class PlaybackService {
         const currentTime = this.audio.currentTime;
         const duration = this.audio.duration || 0;
         onProgress(currentTime, isFinite(duration) ? duration : 0);
+        
+        // Gapless playback overlap logic (crossfade)
+        // If we are within 150ms of the track ending, start playing the preloaded track early
+        if (duration > 0 && !this.hasPreTriggeredNext && this.nextAudio && this.nextAudio.readyState >= 3) {
+          const timeRemaining = duration - currentTime;
+          if (timeRemaining <= 0.15) {
+            this.hasPreTriggeredNext = true;
+            this.nextAudio.volume = this.audio.volume;
+            this.safePlay(this.nextAudio);
+          }
+        }
+
         this.animationFrameId = requestAnimationFrame(update);
       }
     };
