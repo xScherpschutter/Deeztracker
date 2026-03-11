@@ -364,7 +364,7 @@ fn serve_file_request(request: tiny_http::Request, file_path: &PathBuf) {
 
 #[tauri::command]
 async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json::Value, String> {
-    let rusteer = get_rusteer(&state)?;
+    let _ = get_rusteer(&state)?;
     // We reuse the public API client inside Rusteer
     let api = DeezerApi::new();
     let charts = api.get_charts().await.map_err(|e| e.to_string())?;
