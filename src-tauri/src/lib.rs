@@ -445,27 +445,43 @@ async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = RusteerState(Arc::new(std::sync::Mutex::new(None)));
-    #[cfg(not(target_os = "android"))]
-    let config = PlatformConfig {
-        dbus_name: "deeztracker_streaming",
-        display_name: "Deeztracker Streaming",
-        hwnd: None,
-    };
-    #[cfg(not(target_os = "android"))]
-    let mut controls = MediaControls::new(config).expect("Failed to create media controls");
-    #[cfg(not(target_os = "android"))]
-    let _ = controls.attach(|_| {});
-    let media_state = MediaState {
-        controls: Arc::new(std::sync::Mutex::new(controls)),
-    };
 
     tauri::Builder::default()
         .manage(app_state)
-        .manage(media_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
         .setup(|app| {
+            // Initialize Media Controls (Souvlaki)
+            #[cfg(not(target_os = "android"))]
+            {
+                let config = PlatformConfig {
+                    dbus_name: "deeztracker_streaming",
+                    display_name: "Deeztracker Streaming",
+                    hwnd: None,
+                };
+                let mut controls = MediaControls::new(config).expect("Failed to create media controls");
+                
+                let app_handle = app.handle().clone();
+                let _ = controls.attach(move |event| {
+                    use souvlaki::MediaControlEvent;
+                    use tauri::Emitter;
+                    match event {
+                        MediaControlEvent::Play => { let _ = app_handle.emit("media-play", ()); },
+                        MediaControlEvent::Pause => { let _ = app_handle.emit("media-pause", ()); },
+                        MediaControlEvent::Toggle => { let _ = app_handle.emit("media-toggle", ()); },
+                        MediaControlEvent::Next => { let _ = app_handle.emit("media-next", ()); },
+                        MediaControlEvent::Previous => { let _ = app_handle.emit("media-prev", ()); },
+                        _ => (),
+                    }
+                });
+
+                let media_state = MediaState {
+                    controls: Arc::new(std::sync::Mutex::new(controls)),
+                };
+                app.manage(media_state);
+            }
+
             // Initialize Database
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
             let conn = database::init(app_data_dir).expect("Failed to initialize database");

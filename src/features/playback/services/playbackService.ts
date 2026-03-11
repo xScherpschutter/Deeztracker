@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Track } from '../../search/models/search';
+import { getImageUrl } from '../../search/utils/image';
 
 export class PlaybackService {
   private static instance: PlaybackService;
@@ -8,6 +9,7 @@ export class PlaybackService {
   private baseUrl: string | null = null;
   private animationFrameId: number | null = null;
   private isSeeking = false;
+  private lastPositionSent = -1;
 
   private constructor() { }
 
@@ -53,6 +55,7 @@ export class PlaybackService {
     audio.addEventListener('play', () => {
       onPlay();
       this.updateMediaMetadata(track);
+      this.updatePlaybackState(true, audio.currentTime);
       this.startProgressTimer(onProgress);
     });
 
@@ -66,7 +69,7 @@ export class PlaybackService {
       if (this.isSeeking) return;
       onPause();
       this.stopProgressTimer();
-      this.updatePlaybackState(false);
+      this.updatePlaybackState(false, audio.currentTime);
     });
 
     audio.addEventListener('seeking', () => {
@@ -75,6 +78,7 @@ export class PlaybackService {
 
     audio.addEventListener('seeked', () => {
       this.isSeeking = false;
+      this.updatePlaybackState(!audio.paused, audio.currentTime);
       // Auto-resume playback after seek completes
       if (audio.paused && this.currentTrackId) {
         this.safePlay(audio);
@@ -130,6 +134,7 @@ export class PlaybackService {
       this.audio.load(); // Release resources
       this.audio = null;
     }
+    this.lastPositionSent = -1;
   }
 
   private startProgressTimer(onProgress: (progress: number, duration: number) => void) {
@@ -139,7 +144,6 @@ export class PlaybackService {
         const currentTime = this.audio.currentTime;
         const duration = this.audio.duration || 0;
         onProgress(currentTime, isFinite(duration) ? duration : 0);
-        this.updatePlaybackState(true, currentTime);
         this.animationFrameId = requestAnimationFrame(update);
       }
     };
@@ -155,13 +159,36 @@ export class PlaybackService {
 
   private async updateMediaMetadata(track: Track) {
     try {
+      const coverUrl = getImageUrl(track.album?.images, '');
+      
+      // 1. Update OS via Souvlaki (Rust)
       await invoke('update_media_metadata', {
         title: track.title,
         artist: track.artists.map((a) => a.name).join(', '),
-        album: track.album.title,
-        coverUrl: track.album.images[track.album.images.length - 1]?.url,
+        album: track.album?.title || '',
+        coverUrl: coverUrl ? coverUrl : null,
         durationMs: track.duration_ms,
       });
+
+      // 2. Update Browser's Media Session (prevents Webview from hijacking OS media keys silently)
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: track.title,
+          artist: track.artists.map((a) => a.name).join(', '),
+          album: track.album?.title || '',
+          artwork: coverUrl ? [{ src: coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
+        });
+
+        // Delegate browser media actions back to Tauri (or Pinia)
+        // We dispatch standard custom events so the store can pick them up if needed,
+        // but the store is already listening to Tauri events. To ensure they work 
+        // regardless of who catches the key (Webview vs Souvlaki), we emit window events.
+        navigator.mediaSession.setActionHandler('play', () => { window.dispatchEvent(new Event('media-play')); });
+        navigator.mediaSession.setActionHandler('pause', () => { window.dispatchEvent(new Event('media-pause')); });
+        navigator.mediaSession.setActionHandler('previoustrack', () => { window.dispatchEvent(new Event('media-prev')); });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { window.dispatchEvent(new Event('media-next')); });
+      }
+
     } catch (e) {
       console.error('Failed to update media metadata', e);
     }
@@ -178,3 +205,4 @@ export class PlaybackService {
     }
   }
 }
+

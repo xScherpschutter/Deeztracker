@@ -3,6 +3,7 @@ import type { Track } from '../../search/models/search';
 import { PlaybackService } from '../services/playbackService';
 import { SearchService } from '../../search/services/searchService';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { LrcParser, type LrcLine } from '../utils/lrcParser';
 
 export const usePlaybackStore = defineStore('playback', {
@@ -19,6 +20,7 @@ export const usePlaybackStore = defineStore('playback', {
     shuffledIndices: [] as number[],
     lyrics: [] as LrcLine[],
     isLoadingLyrics: false,
+    _listenersInitialized: false,
   }),
 
   getters: {
@@ -42,6 +44,30 @@ export const usePlaybackStore = defineStore('playback', {
   },
 
   actions: {
+    async initMediaControls() {
+      if (this._listenersInitialized) return;
+      this._listenersInitialized = true;
+
+      const handlePlay = () => { if (!this.isPlaying) this.togglePlay(); };
+      const handlePause = () => { if (this.isPlaying) this.togglePlay(); };
+      const handleToggle = () => { this.togglePlay(); };
+      const handleNext = () => { this.next(); };
+      const handlePrev = () => { this.prev(); };
+
+      // 1. Listen to OS media control events from Rust (Souvlaki)
+      listen('media-play', handlePlay);
+      listen('media-pause', handlePause);
+      listen('media-toggle', handleToggle);
+      listen('media-next', handleNext);
+      listen('media-prev', handlePrev);
+
+      // 2. Listen to Browser Media Session events (WebView fallback)
+      window.addEventListener('media-play', handlePlay);
+      window.addEventListener('media-pause', handlePause);
+      window.addEventListener('media-next', handleNext);
+      window.addEventListener('media-prev', handlePrev);
+    },
+
     async playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {
       // If the same track is already active, just resume if paused
       if (this.currentTrack?.ids.deezer === track.ids.deezer) {
