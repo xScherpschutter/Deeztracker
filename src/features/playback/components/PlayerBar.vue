@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
+import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { formatDuration } from '../../search/utils/time';
 import FullscreenPlayer from '../views/FullscreenPlayer.vue';
+import AddToPlaylistModal from '../../library/components/AddToPlaylistModal.vue';
+import type { Track } from '../../search/models/search';
 
 const playbackStore = usePlaybackStore();
+const libraryStore = useLibraryStore();
 const isSeeking = ref(false);
 const seekValue = ref(0);
 const showFullscreen = ref(false);
+const isPlaylistModalOpen = ref(false);
 
 const onSeekInput = (e: Event) => {
   isSeeking.value = true;
@@ -26,6 +31,12 @@ const onSeekChange = (e: Event) => {
 const onVolumeChange = (e: Event) => {
   const value = (e.target as HTMLInputElement).value;
   playbackStore.setVolume(parseFloat(value));
+};
+
+const openPlaylistModal = () => {
+  if (playbackStore.currentTrack) {
+    isPlaylistModalOpen.value = true;
+  }
 };
 </script>
 
@@ -46,28 +57,45 @@ const onVolumeChange = (e: Event) => {
     </Teleport>
 
     <!-- Track Info -->
-    <div class="flex items-center gap-4 w-1/3 min-w-0 group cursor-pointer" @click="showFullscreen = true">
-      <div v-if="playbackStore.currentTrack" class="w-14 h-14 bg-background rounded-lg overflow-hidden flex-shrink-0 relative">
-        <img :src="playbackStore.currentTrack.album.images[0]?.url" alt="Cover" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
-        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="m15 3 6 6-6 6"/><path d="M9 21 3 15l6-6"/><path d="M21 9H9s-4 0-4 4v8"/><path d="M3 15h12s4 0 4-4V3"/></svg>
+    <div class="flex items-center gap-4 w-1/3 min-w-0">
+      <div class="flex items-center gap-4 group cursor-pointer" @click="showFullscreen = true">
+        <div v-if="playbackStore.currentTrack" class="w-14 h-14 bg-background rounded-lg overflow-hidden flex-shrink-0 relative">
+          <img :src="playbackStore.currentTrack.album.images[0]?.url" alt="Cover" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="m15 3 6 6-6 6"/><path d="M9 21 3 15l6-6"/><path d="M21 9H9s-4 0-4 4v8"/><path d="M3 15h12s4 0 4-4V3"/></svg>
+          </div>
+        </div>
+        <div v-else class="w-14 h-14 bg-white/5 rounded-lg flex-shrink-0"></div>
+        
+        <div class="min-w-0">
+          <template v-if="playbackStore.currentTrack">
+            <div class="text-sm font-bold truncate hover:underline">
+              {{ playbackStore.currentTrack.title }}
+            </div>
+            <div class="text-xs text-textGray truncate">
+              {{ playbackStore.currentTrack.artists.map(a => a.name).join(', ') }}
+            </div>
+          </template>
+          <template v-else>
+            <div class="h-4 bg-white/5 rounded w-32 mb-2"></div>
+            <div class="h-3 bg-white/5 rounded w-24"></div>
+          </template>
         </div>
       </div>
-      <div v-else class="w-14 h-14 bg-white/5 rounded-lg flex-shrink-0"></div>
       
-      <div class="min-w-0">
-        <template v-if="playbackStore.currentTrack">
-          <div class="text-sm font-bold truncate hover:underline">
-            {{ playbackStore.currentTrack.title }}
-          </div>
-          <div class="text-xs text-textGray truncate">
-            {{ playbackStore.currentTrack.artists.map(a => a.name).join(', ') }}
-          </div>
-        </template>
-        <template v-else>
-          <div class="h-4 bg-white/5 rounded w-32 mb-2"></div>
-          <div class="h-3 bg-white/5 rounded w-24"></div>
-        </template>
+      <!-- Library Actions -->
+      <div v-if="playbackStore.currentTrack" class="flex items-center gap-2 ml-2">
+        <button 
+          @click.stop="libraryStore.toggleFavorite(playbackStore.currentTrack)" 
+          class="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+          :class="libraryStore.isTrackFavorite(playbackStore.currentTrack?.ids.deezer) ? 'text-primary' : 'text-textGray hover:text-white'"
+        >
+          <svg v-if="libraryStore.isTrackFavorite(playbackStore.currentTrack?.ids.deezer)" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        </button>
+        <button @click.stop="openPlaylistModal" class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
       </div>
     </div>
 
@@ -152,6 +180,8 @@ const onVolumeChange = (e: Event) => {
         >
       </div>
     </div>
+    
+    <AddToPlaylistModal :is-open="isPlaylistModalOpen" :track="playbackStore.currentTrack" @close="isPlaylistModalOpen = false" />
   </footer>
 </template>
 

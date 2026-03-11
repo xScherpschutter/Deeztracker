@@ -46,7 +46,9 @@
     "no_playlists": "No tienes playlists creadas.",
     "add_to_playlist": "Añadir a playlist",
     "remove_from_playlist": "Eliminar de la playlist",
+    "delete_playlist_title": "Eliminar Playlist",
     "delete_playlist_confirm": "¿Estás seguro de que quieres eliminar esta playlist?",
+    "delete_playlist_btn": "Eliminar",
     "playlist_created": "Playlist creada con éxito",
     "added_to_playlist": "Añadido a {name}",
     "removed_from_playlist": "Eliminado de {name}"

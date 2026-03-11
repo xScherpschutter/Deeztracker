@@ -222,7 +222,7 @@ const handleLogout = () => {
           <!-- About Section -->
           <section class="pt-2">
             <div class="flex items-center justify-between text-xs text-textGray">
-              <span>Deeztracker Streaming</span>
+              <span>Deeztracker</span>
               <span>{{ t('settings.about.version') }} 0.1.0</span>
             </div>
           </section>

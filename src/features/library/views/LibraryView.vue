@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../../search/utils/time';
 import { getImageUrl } from '../../search/utils/image';
 import type { Track } from '../../search/models/search';
+import ConfirmModal from '../../../components/ConfirmModal.vue';
 
 const libraryStore = useLibraryStore();
 const playbackStore = usePlaybackStore();
@@ -17,6 +18,9 @@ const activeTab = ref<'favorites' | 'playlists'>('favorites');
 const isCreatingPlaylist = ref(false);
 const newPlaylistName = ref('');
 const newPlaylistDesc = ref('');
+
+const showDeleteModal = ref(false);
+const playlistToDelete = ref<number | null>(null);
 
 const playFavorite = (track: Track) => {
   playbackStore.playTrack(track, { type: 'playlist', items: libraryStore.favorites });
@@ -36,10 +40,22 @@ const handleCreatePlaylist = async () => {
   isCreatingPlaylist.value = false;
 };
 
-const handleDeletePlaylist = async (id: number) => {
-  if (confirm(t('library.delete_playlist_confirm'))) {
-    await libraryStore.deletePlaylist(id);
+const requestDeletePlaylist = (id: number) => {
+  playlistToDelete.value = id;
+  showDeleteModal.value = true;
+};
+
+const executeDeletePlaylist = async () => {
+  if (playlistToDelete.value !== null) {
+    await libraryStore.deletePlaylist(playlistToDelete.value);
+    playlistToDelete.value = null;
+    showDeleteModal.value = false;
   }
+};
+
+const cancelDeletePlaylist = () => {
+  playlistToDelete.value = null;
+  showDeleteModal.value = false;
 };
 </script>
 
@@ -168,7 +184,7 @@ const handleDeletePlaylist = async (id: number) => {
             class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all hover:translate-y-[-4px] cursor-pointer relative"
           >
             <button 
-              @click.stop="handleDeletePlaylist(playlist.id)"
+              @click.stop="requestDeletePlaylist(playlist.id)"
               class="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-textGray hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -184,5 +200,17 @@ const handleDeletePlaylist = async (id: number) => {
       </div>
 
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal 
+      :is-open="showDeleteModal"
+      :title="t('library.delete_playlist_title')"
+      :message="t('library.delete_playlist_confirm')"
+      :confirm-text="t('library.delete_playlist_btn')"
+      :cancel-text="t('settings.close')"
+      :is-destructive="true"
+      @confirm="executeDeletePlaylist"
+      @cancel="cancelDeletePlaylist"
+    />
   </div>
 </template>

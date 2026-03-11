@@ -28,9 +28,7 @@ const goForward = () => router.forward();
     <!-- Left Side: Logo & Navigation (Solo si está autenticado) -->
     <div class="flex items-center gap-4 px-4 h-full">
       <div v-if="authStore.isAuthenticated" class="flex items-center gap-2 pointer-events-none">
-        <div class="w-5 h-5 bg-primary rounded flex items-center justify-center">
-           <span class="text-[10px] font-bold text-black">D</span>
-        </div>
+        <img src="/icon.png" alt="Logo" class="w-5 h-5 object-contain" />
         <span class="text-xs font-semibold tracking-wider text-textGray uppercase">Deeztracker</span>
       </div>
 

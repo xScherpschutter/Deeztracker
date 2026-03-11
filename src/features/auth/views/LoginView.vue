@@ -20,7 +20,8 @@ async function handleLogin() {
 <template>
   <div class="h-[calc(100vh-2.5rem)] flex items-center justify-center bg-background text-textWhite p-6 mt-10">
     <div class="max-w-md w-full bg-surface p-8 rounded-2xl shadow-xl border border-white/5">
-      <div class="text-center mb-10">
+      <div class="text-center mb-10 flex flex-col items-center">
+        <img src="/icon.png" alt="Logo" class="w-16 h-16 object-contain mb-4" />
         <h1 class="text-3xl font-bold text-primary tracking-tight mb-2">Deeztracker</h1>
         <p class="text-textGray">{{ t('auth.login') }}</p>
       </div>
