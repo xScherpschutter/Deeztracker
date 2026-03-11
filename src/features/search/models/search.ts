@@ -74,6 +74,7 @@ export interface Track {
   album: AlbumTrack;
   artists: ArtistTrack[];
   ids: IDs;
+  added_at?: string;
 }
 
 export interface Album {
