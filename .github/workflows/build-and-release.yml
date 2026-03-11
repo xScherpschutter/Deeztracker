@@ -116,11 +116,13 @@ jobs:
     steps:
       - name: Publish release
         uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
         with:
           script: |
             await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              release_id: ${{ needs.create-release.outputs.release_id }},
+              release_id: parseInt(process.env.RELEASE_ID),
               draft: false,
             });
