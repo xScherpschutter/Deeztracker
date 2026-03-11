@@ -1,8 +1,18 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { useAuthStore } from './features/auth/stores/useAuthStore';
+import { useSettingsStore } from './features/dashboard/stores/useSettingsStore';
+import { useI18n } from 'vue-i18n';
 import AppBar from './components/AppBar.vue';
 
 const authStore = useAuthStore();
+const settingsStore = useSettingsStore();
+const { locale } = useI18n();
+
+onMounted(async () => {
+  // Set initial locale from saved settings
+  locale.value = settingsStore.language;
+});
 </script>
 
 <template>

@@ -2,6 +2,8 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { AuthService } from '../services/authService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
+import { useSettingsStore } from '../../dashboard/stores/useSettingsStore';
+import { invoke } from '@tauri-apps/api/core';
 
 const ARL_KEY = 'deeztracker_arl';
 
@@ -9,6 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = ref(false);
   const isAuthenticating = ref(false);
   const isInitialized = ref(false);
+  const isPremium = ref(false);
   const authError = ref<string | null>(null);
 
   const playbackStore = usePlaybackStore();
@@ -22,6 +25,14 @@ export const useAuthStore = defineStore('auth', () => {
       const success = await AuthService.login(arl);
       if (success) {
         isAuthenticated.value = true;
+        
+        // Sync settings with backend now that we are authenticated
+        const settingsStore = useSettingsStore();
+        await settingsStore.init();
+
+        // Check premium status after successful login
+        isPremium.value = await invoke<boolean>("is_premium");
+        
         if (save) {
           localStorage.setItem(ARL_KEY, arl);
         }
@@ -40,6 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     playbackStore.stop();
     isAuthenticated.value = false;
+    isPremium.value = false;
     localStorage.removeItem(ARL_KEY);
   }
 
@@ -49,6 +61,13 @@ export const useAuthStore = defineStore('auth', () => {
     const savedArl = localStorage.getItem(ARL_KEY);
     if (savedArl) {
       await login(savedArl, false);
+      
+      // Refresh premium status explicitly
+      try {
+        isPremium.value = await invoke<boolean>("is_premium");
+      } catch (e) {
+        console.error("Failed to verify premium on init", e);
+      }
     }
     isInitialized.value = true;
   }
@@ -57,6 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAuthenticating,
     isInitialized,
+    isPremium,
     authError,
     login,
     logout,

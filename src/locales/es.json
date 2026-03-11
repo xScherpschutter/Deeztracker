@@ -54,6 +54,39 @@
     "forward": "Adelante",
     "minimize": "Minimizar",
     "maximize": "Maximizar",
+    "close": "Cerrar",
+    "settings": "Configuración"
+  },
+  "settings": {
+    "title": "Configuración",
+    "audio": {
+      "title": "Audio",
+      "quality": "Calidad de audio",
+      "quality_low": "Básica (128 kbps)",
+      "quality_medium": "Alta (320 kbps)",
+      "quality_high": "Sin pérdida (FLAC)",
+      "quality_help": "La calidad FLAC requiere una cuenta Deezer Premium/HiFi."
+    },
+    "appearance": {
+      "title": "Apariencia",
+      "language": "Idioma",
+      "languages": {
+        "es": "Español",
+        "en": "Inglés"
+      }
+    },
+    "account": {
+      "title": "Cuenta",
+      "status": "Estado de la cuenta",
+      "premium": "Premium / HiFi",
+      "free": "Gratis",
+      "logout": "Cerrar sesión",
+      "arl_token": "Token ARL actual"
+    },
+    "about": {
+      "title": "Acerca de",
+      "version": "Versión"
+    },
     "close": "Cerrar"
   }
 }

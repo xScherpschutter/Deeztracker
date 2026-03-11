@@ -45,6 +45,42 @@ async fn login(arl: String, state: tauri::State<'_, RusteerState>) -> Result<boo
     Ok(true)
 }
 
+#[tauri::command]
+async fn is_premium(state: tauri::State<'_, RusteerState>) -> Result<bool, String> {
+    let rusteer = get_rusteer(&state)?;
+    Ok(rusteer.has_premium())
+}
+
+#[tauri::command]
+async fn get_user_info(state: tauri::State<'_, RusteerState>) -> Result<serde_json::Value, String> {
+    let rusteer = get_rusteer(&state)?;
+    Ok(serde_json::json!({
+        "is_premium": rusteer.has_premium(),
+    }))
+}
+
+#[tauri::command]
+async fn set_audio_quality(quality: String, state: tauri::State<'_, RusteerState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let rusteer = guard.as_mut().ok_or_else(|| "Not logged in".to_string())?;
+    
+    let q = match quality.as_str() {
+        "FLAC" => DownloadQuality::Flac,
+        "MP3_320" => DownloadQuality::Mp3_320,
+        "MP3_128" => DownloadQuality::Mp3_128,
+        _ => return Err("Invalid quality".to_string()),
+    };
+    
+    rusteer.set_quality(q);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_audio_quality(state: tauri::State<'_, RusteerState>) -> Result<String, String> {
+    let rusteer = get_rusteer(&state)?;
+    Ok(rusteer.quality().format().to_string())
+}
+
 // Media Controls State
 pub struct MediaState {
     pub controls: Arc<std::sync::Mutex<MediaControls>>,
@@ -535,6 +571,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             login,
+            is_premium,
+            get_user_info,
+            set_audio_quality,
+            get_audio_quality,
             search_tracks,
             search_albums,
             search_artists,

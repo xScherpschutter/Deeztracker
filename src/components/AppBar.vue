@@ -3,11 +3,14 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useAuthStore } from '../features/auth/stores/useAuthStore';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { ref } from 'vue';
+import SettingsModal from '../features/dashboard/components/SettingsModal.vue';
 
 const { t } = useI18n();
 const appWindow = getCurrentWindow();
 const authStore = useAuthStore();
 const router = useRouter();
+const isSettingsOpen = ref(false);
 
 const minimize = () => appWindow.minimize();
 const toggleMaximize = () => appWindow.toggleMaximize();
@@ -15,11 +18,6 @@ const close = () => appWindow.close();
 
 const goBack = () => router.back();
 const goForward = () => router.forward();
-
-const handleLogout = () => {
-  authStore.logout();
-  router.push('/login');
-};
 </script>
 
 <template>
@@ -54,17 +52,17 @@ const handleLogout = () => {
       </div>
     </div>
 
-    <!-- Right Side: Auth & Window Controls -->
+    <!-- Right Side: Settings & Window Controls -->
     <div class="flex items-center h-full">
-      <!-- Auth Info -->
-      <div v-if="authStore.isAuthenticated" class="flex items-center gap-3 mr-2 pr-4 border-r border-white/10 h-5">
-        <button 
-          @click="handleLogout"
-          class="no-drag text-[10px] font-bold text-textGray hover:text-white transition-colors uppercase"
-        >
-          {{ t('auth.logout') }}
-        </button>
-      </div>
+      <!-- Settings Icon (Solo si está autenticado) -->
+      <button 
+        v-if="authStore.isAuthenticated"
+        @click="isSettingsOpen = true"
+        class="no-drag w-10 h-full flex items-center justify-center hover:bg-white/5 text-textGray hover:text-white transition-colors border-r border-white/5"
+        :title="t('app_bar.settings')"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
 
       <!-- Window Controls (Siempre visibles) -->
       <div class="flex items-center h-full">
@@ -94,6 +92,9 @@ const handleLogout = () => {
         </button>
       </div>
     </div>
+    
+    <!-- Settings Modal -->
+    <SettingsModal :is-open="isSettingsOpen" @close="isSettingsOpen = false" />
   </nav>
 </template>
 
