@@ -15,6 +15,7 @@
     "unknown_user": "Unknown user",
     "view_all": "View all",
     "artist_label": "Artist",
+    "album_label": "Album",
     "playlist_by": "By {user}",
     "empty_state": "Type something to search for music",
     "no_results": "No results found for \"{query}\"",

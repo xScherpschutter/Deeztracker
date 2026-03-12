@@ -87,7 +87,7 @@ onMounted(async () => {
         />
         
         <div class="flex-1 z-10 relative mb-2">
-          <span class="text-xs font-bold uppercase tracking-widest text-primary mb-2 block">{{ t('search.categories.albums') }}</span>
+          <span class="text-xs font-bold uppercase tracking-widest text-primary mb-2 block">{{ t('search.album_label') }}</span>
           <h1 class="text-5xl font-black mb-4 tracking-tighter">{{ album.title }}</h1>
           <div class="flex items-center gap-2 text-sm font-medium">
             <span class="hover:underline cursor-pointer" @click="router.push(`/artist/${album.artists[0].ids.deezer}`)">
