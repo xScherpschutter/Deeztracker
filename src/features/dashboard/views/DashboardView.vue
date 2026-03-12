@@ -4,13 +4,16 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { SearchService } from '../../search/services/searchService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
+import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import type { Track, Album, Artist, Playlist } from '../../search/models/search';
 import { getImageUrl } from '../../search/utils/image';
 import LoadingSpinner from '../../search/components/LoadingSpinner.vue';
+import AddToPlaylistModal from '../../library/components/AddToPlaylistModal.vue';
 
 const { t } = useI18n();
 const router = useRouter();
 const playbackStore = usePlaybackStore();
+const libraryStore = useLibraryStore();
 
 const charts = ref<{
   tracks: Track[];
@@ -19,6 +22,14 @@ const charts = ref<{
   playlists: Playlist[];
 } | null>(null);
 const isLoading = ref(true);
+
+const isPlaylistModalOpen = ref(false);
+const selectedTrack = ref<Track | null>(null);
+
+const openPlaylistModal = (track: Track) => {
+  selectedTrack.value = track;
+  isPlaylistModalOpen.value = true;
+};
 
 const playTrack = (track: Track) => {
   playbackStore.playTrack(track, { type: 'top', items: charts.value?.tracks || [] });
@@ -93,10 +104,21 @@ onMounted(async () => {
                 </h3>
                 <p class="text-xs text-textGray truncate">{{ track.artists[0]?.name }}</p>
               </div>
-              <div class="opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textGray" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
+              <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  @click.stop="libraryStore.toggleFavorite(track)" 
+                  class="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                  :class="libraryStore.isTrackFavorite(track.ids.deezer) ? 'text-primary' : 'text-textGray hover:text-white'"
+                >
+                  <svg v-if="libraryStore.isTrackFavorite(track.ids.deezer)" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                </button>
+                <button 
+                  @click.stop="openPlaylistModal(track)" 
+                  class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </button>
               </div>
             </div>
           </div>
@@ -140,6 +162,8 @@ onMounted(async () => {
         </div>
       </section>
     </div>
+    
+    <AddToPlaylistModal :is-open="isPlaylistModalOpen" :track="selectedTrack" @close="isPlaylistModalOpen = false" />
   </div>
 </template>
 
