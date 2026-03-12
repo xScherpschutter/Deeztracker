@@ -26,15 +26,15 @@ export const useLibraryStore = defineStore('library', () => {
 
   async function toggleFavorite(track: Track) {
     try {
-      const isFav = await invoke<boolean>('toggle_favorite', { track });
-      if (isFav) {
-        // Add to local state to avoid full reload
-        favorites.value = [track, ...favorites.value];
+      const result = await invoke<Track | null>('toggle_favorite', { track });
+      if (result) {
+        // Add to local state with the backend-provided added_at timestamp
+        favorites.value = [result, ...favorites.value];
       } else {
         // Remove from local state
         favorites.value = favorites.value.filter(t => t.ids.deezer !== track.ids.deezer);
       }
-      return isFav;
+      return !!result;
     } catch (e) {
       console.error('Failed to toggle favorite', e);
       return false;

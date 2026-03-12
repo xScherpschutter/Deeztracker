@@ -50,7 +50,7 @@ pub fn init(app_data_dir: PathBuf) -> Result<Connection, String> {
 
 // Favorites Commands
 #[tauri::command]
-pub async fn toggle_favorite(track: Track, state: tauri::State<'_, DbState>) -> Result<bool, String> {
+pub async fn toggle_favorite(track: Track, state: tauri::State<'_, DbState>) -> Result<Option<Track>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let track_id = track.ids.deezer.clone().ok_or("No track ID")?;
     
@@ -64,14 +64,24 @@ pub async fn toggle_favorite(track: Track, state: tauri::State<'_, DbState>) -> 
     if exists {
         conn.execute("DELETE FROM favorites WHERE track_id = ?", params![track_id])
             .map_err(|e| e.to_string())?;
-        Ok(false)
+        Ok(None)
     } else {
         let metadata = serde_json::to_string(&track).map_err(|e| e.to_string())?;
         conn.execute(
             "INSERT INTO favorites (track_id, metadata) VALUES (?, ?)",
             params![track_id, metadata],
         ).map_err(|e| e.to_string())?;
-        Ok(true)
+        
+        // Fetch the added_at timestamp
+        let added_at: String = conn.query_row(
+            "SELECT added_at FROM favorites WHERE track_id = ?",
+            params![track_id],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        let mut track_with_added_at = track.clone();
+        track_with_added_at.added_at = Some(added_at);
+        Ok(Some(track_with_added_at))
     }
 }
 
