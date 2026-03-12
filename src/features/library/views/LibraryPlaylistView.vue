@@ -92,7 +92,8 @@ const removeFromPlaylist = async (trackId: string) => {
             <tr class="text-textGray text-xs uppercase tracking-widest border-b border-white/5">
               <th class="py-3 font-medium w-12 text-center">#</th>
               <th class="py-3 font-medium">{{ t('search.track_title') }}</th>
-              <th class="py-3 font-medium hidden md:table-cell">{{ t('library.added_at') }}</th>
+              <th class="py-3 font-medium hidden md:table-cell">{{ t('search.categories.albums') }}</th>
+              <th class="py-3 font-medium hidden lg:table-cell">{{ t('library.added_at') }}</th>
               <th class="py-3 font-medium w-32 text-right pr-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </th>
@@ -127,6 +128,11 @@ const removeFromPlaylist = async (trackId: string) => {
                 </div>
               </td>
               <td class="py-3 text-sm text-textGray hidden md:table-cell">
+                <span class="hover:underline truncate block max-w-[200px]" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
+                  {{ track.album.title }}
+                </span>
+              </td>
+              <td class="py-3 text-sm text-textGray hidden lg:table-cell">
                 {{ track.added_at ? getRelativeTime(track.added_at, t) : '-' }}
               </td>
               <td class="py-3 pr-4">
