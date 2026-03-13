@@ -34,8 +34,8 @@ reqwest = { version = "0.12", features = ["json", "cookies", "stream"] }
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# Internal HTTP Server for Streaming
-tiny_http = "0.12"
+# Native Audio Engine
+rodio = "0.19"
 
 # Utilities
 rand = "0.8"

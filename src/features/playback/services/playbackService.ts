@@ -1,21 +1,24 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import type { Track } from '../../search/models/search';
 import { getImageUrl } from '../../search/utils/image';
 
 export class PlaybackService {
   private static instance: PlaybackService;
-  private audio: HTMLAudioElement | null = null;
-  private nextAudio: HTMLAudioElement | null = null;
-  private currentTrackId: string | null = null;
-  private preloadedTrackId: string | null = null;
-  private baseUrl: string | null = null;
-  private animationFrameId: number | null = null;
+  private _currentTrackId: string | null = null;
   private isSeeking = false;
-  private hasPreTriggeredNext = false;
+  private _volume = 0.8;
 
-  private currentPlayId = 0;
+  private onProgressCallback: ((progress: number, duration: number) => void) | null = null;
+  private onEndCallback: (() => void) | null = null;
+  private onPlayCallback: (() => void) | null = null;
+  private onPauseCallback: (() => void) | null = null;
 
-  private constructor() { }
+  private currentDuration = 0;
+
+  private constructor() {
+    this.setupNativeListeners();
+  }
 
   static getInstance(): PlaybackService {
     if (!PlaybackService.instance) {
@@ -24,31 +27,25 @@ export class PlaybackService {
     return PlaybackService.instance;
   }
 
-  private async getBaseUrl(): Promise<string> {
-    if (!this.baseUrl) {
-      this.baseUrl = await invoke<string>('get_streaming_base_url');
-    }
-    return this.baseUrl;
+  private async setupNativeListeners() {
+    // @ts-ignore: Keeping the reference alive
+    await listen<number>('playback_progress_native', (event) => {
+      if (this.isSeeking) return;
+      if (this.onProgressCallback && this.currentDuration > 0) {
+        this.onProgressCallback(event.payload, this.currentDuration);
+      }
+    });
+
+    // @ts-ignore: Keeping the reference alive
+    await listen<void>('playback_ended_native', () => {
+      if (this.onEndCallback) {
+        this.onEndCallback();
+      }
+    });
   }
 
-  async preload(track: Track) {
-    if (!track.ids.deezer || this.preloadedTrackId === track.ids.deezer) return;
-
-    // Cleanup old preloaded audio
-    if (this.nextAudio) {
-      this.nextAudio.pause();
-      this.nextAudio.removeAttribute('src');
-      this.nextAudio.load();
-      this.nextAudio = null;
-    }
-
-    this.preloadedTrackId = track.ids.deezer;
-    this.hasPreTriggeredNext = false;
-    const baseUrl = await this.getBaseUrl();
-    const url = `${baseUrl}/stream/${track.ids.deezer}`;
-
-    this.nextAudio = new Audio(url);
-    this.nextAudio.preload = "auto";
+  async preload(_track: Track) {
+    // Gapless pre-fetching is bypassed in the native framework to prioritize uncorrupted buffers.
   }
 
   async play(
@@ -60,196 +57,127 @@ export class PlaybackService {
     onReady?: () => void,
     onBuffering?: (isBuffering: boolean) => void,
   ) {
-    const playId = ++this.currentPlayId;
+    this.onEndCallback = onEnd;
+    this.onProgressCallback = onProgress;
+    this.onPlayCallback = onPlay;
+    this.onPauseCallback = onPause;
 
-    // Resume if same track and audio hasn't ended yet
-    if (this.currentTrackId === track.ids.deezer && this.audio && !this.audio.ended) {
-      onReady?.();
-      this.safePlay(this.audio);
+    onBuffering?.(true);
+
+    if (this._currentTrackId === track.ids.deezer) {
+      try {
+        await invoke('audio_resume_native');
+        onReady?.();
+        onBuffering?.(false);
+        this.onPlayCallback?.();
+        this.updatePlaybackState(true);
+      } catch (e) {
+        console.error('Failed to resume:', e);
+        onReady?.();
+        onBuffering?.(false);
+      }
       return;
     }
 
-    const baseUrl = await this.getBaseUrl();
-
-    // If another play call has started, abort this one
-    if (playId !== this.currentPlayId) return;
-
-    // Clean up previous audio
-    this.cleanup();
-
-    this.currentTrackId = track.ids.deezer || null;
-
-    // Use preloaded audio if it matches the requested track
-    let audio: HTMLAudioElement;
-    if (this.nextAudio && this.preloadedTrackId === track.ids.deezer) {
-      audio = this.nextAudio;
-      this.nextAudio = null;
-      this.preloadedTrackId = null;
-    } else {
-      if (this.nextAudio) {
-        this.nextAudio.pause();
-        this.nextAudio.removeAttribute('src');
-        this.nextAudio.load();
-        this.nextAudio = null;
-        this.preloadedTrackId = null;
-      }
-      const url = `${baseUrl}/stream/${track.ids.deezer}`;
-      audio = new Audio(url);
+    this._currentTrackId = track.ids.deezer || null;
+    let trackDuration = track.duration_ms;
+    // In some Deezer endpoints, it might come as 'duration' instead of 'duration_ms', or in seconds instead of ms
+    if (!trackDuration || trackDuration < 1000) {
+      // @ts-ignore
+      trackDuration = track.duration ? track.duration * 1000 : 200000;
     }
+    this.currentDuration = trackDuration / 1000.0;
+    console.log("PLAY: Setting current track duration to", this.currentDuration, "seconds");
 
-    this.audio = audio;
-    this.hasPreTriggeredNext = false;
+    try {
+      if (track.ids.deezer) {
+        await invoke('audio_play_native', {
+          trackId: track.ids.deezer,
+          startPercent: 0.0,
+          startSec: 0.0
+        });
 
-    const handlePlay = () => {
-      onPlay();
+        await this.setVolume(this._volume);
+      }
+      onReady?.();
+      onBuffering?.(false);
+      this.onPlayCallback?.();
       this.updateMediaMetadata(track);
-      this.updatePlaybackState(true, audio.currentTime);
-      this.startProgressTimer(onProgress);
-    };
-
-    // Event listeners
-    audio.addEventListener('play', handlePlay);
-
-    // If already playing (due to gapless pre-trigger), call handler immediately
-    // as the 'play' event won't fire again.
-    if (!audio.paused) {
-      handlePlay();
-    }
-
-    // canplay: browser has enough data buffered to actually play and seek
-    if (audio.readyState >= 3) { // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA
+      this.updatePlaybackState(true, 0);
+    } catch (e) {
+      console.error('Native playback error:', e);
       onReady?.();
-    } else {
-      audio.addEventListener('canplay', () => {
-        onReady?.();
-      }, { once: true });
-    }
-
-    audio.addEventListener('waiting', () => {
-      onBuffering?.(true);
-    });
-
-    audio.addEventListener('playing', () => {
       onBuffering?.(false);
-      onReady?.();
-    });
+    }
+  }
 
-    audio.addEventListener('pause', () => {
-      // Ignore pause events triggered by the browser during seeking
-      if (this.isSeeking) return;
-      onPause();
-      this.stopProgressTimer();
-      this.updatePlaybackState(false, audio.currentTime);
-    });
+  async pause() {
+    try {
+      await invoke('audio_pause_native');
+      this.onPauseCallback?.();
+      this.updatePlaybackState(false);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-    audio.addEventListener('seeking', () => {
-      this.isSeeking = true;
-      onBuffering?.(true);
-    });
+  async resume() {
+    try {
+      await invoke('audio_resume_native');
+      this.onPlayCallback?.();
+      this.updatePlaybackState(true);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-    audio.addEventListener('seeked', () => {
+  async stop() {
+    try {
+      this._currentTrackId = null;
+      await invoke('audio_stop_native');
+      this.onPauseCallback?.();
+      this.updatePlaybackState(false);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async seek(seconds: number) {
+    if (!this._currentTrackId) return;
+    this.isSeeking = true;
+
+    try {
+      const durationToUse = this.currentDuration > 0 ? this.currentDuration : 1.0;
+      let percent = seconds / durationToUse;
+
+      const safeSec = isNaN(seconds) ? 0.0 : Number(seconds);
+      const safePercent = isNaN(percent) ? 0.0 : Number(percent);
+
+      console.log(`SEEK: Navigating to ${safeSec}s (Percent: ${safePercent}) over duration: ${durationToUse}`);
+
+      await invoke('audio_play_native', {
+        trackId: this._currentTrackId,
+        startPercent: safePercent,
+        startSec: safeSec
+      });
+      this.updatePlaybackState(true, seconds);
+    } catch (e) {
+      console.error('Seek error:', e);
+    } finally {
       this.isSeeking = false;
-      onBuffering?.(false);
-      this.updatePlaybackState(!audio.paused, audio.currentTime);
-      // Auto-resume playback after seek completes
-      if (audio.paused && this.currentTrackId) {
-        this.safePlay(audio);
-      }
-      this.startProgressTimer(onProgress);
-    });
-
-    audio.addEventListener('ended', () => {
-      this.stopProgressTimer();
-      onEnd();
-    });
-
-    audio.addEventListener('error', (e) => {
-      console.error('Playback error:', e);
-      onReady?.(); // Ensure buffering state is cleared on error
-      onBuffering?.(false);
-    });
-
-    this.safePlay(audio);
-  }
-
-  pause() {
-    this.audio?.pause();
-  }
-
-  stop() {
-    this.cleanup();
-  }
-
-  seek(seconds: number) {
-    if (!this.audio) return;
-    this.audio.currentTime = seconds;
-  }
-
-  setVolume(volume: number) {
-    if (this.audio) {
-      this.audio.volume = volume;
-    }
-    if (this.nextAudio) {
-      this.nextAudio.volume = volume;
     }
   }
 
-  /** Play with AbortError handling (normal when play is interrupted by seek) */
-  private safePlay(audio: HTMLAudioElement) {
-    audio.play().catch((e) => {
-      if (e.name !== 'AbortError') {
-        console.error('Playback error:', e);
-      }
-    });
-  }
-
-  private cleanup() {
-    this.stopProgressTimer();
-    if (this.audio) {
-      this.audio.pause();
-      this.audio.removeAttribute('src');
-      this.audio.load(); // Release resources
-      this.audio = null;
-    }
-  }
-
-  private startProgressTimer(onProgress: (progress: number, duration: number) => void) {
-    this.stopProgressTimer();
-    const update = () => {
-      if (this.audio && !this.audio.paused) {
-        const currentTime = this.audio.currentTime;
-        const duration = this.audio.duration || 0;
-        onProgress(currentTime, isFinite(duration) ? duration : 0);
-
-        // Gapless playback overlap logic (crossfade)
-        // If we are within 150ms of the track ending, start playing the preloaded track early
-        if (duration > 0 && !this.hasPreTriggeredNext && this.nextAudio && this.nextAudio.readyState >= 3) {
-          const timeRemaining = duration - currentTime;
-          if (timeRemaining <= 0.15) {
-            this.hasPreTriggeredNext = true;
-            this.nextAudio.volume = this.audio.volume;
-            this.safePlay(this.nextAudio);
-          }
-        }
-
-        this.animationFrameId = requestAnimationFrame(update);
-      }
-    };
-    this.animationFrameId = requestAnimationFrame(update);
-  }
-
-  private stopProgressTimer() {
-    if (this.animationFrameId !== null) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
+  async setVolume(volume: number) {
+    this._volume = Math.max(0, Math.min(1, volume));
+    try {
+      await invoke('audio_set_volume_native', { volume: this._volume });
+    } catch (e) { console.error(e) }
   }
 
   private async updateMediaMetadata(track: Track) {
     try {
       const coverUrl = getImageUrl(track.album?.images, '');
-
-      // 1. Update OS via Souvlaki (Rust)
       await invoke('update_media_metadata', {
         title: track.title,
         artist: track.artists.map((a) => a.name).join(', '),
@@ -258,7 +186,6 @@ export class PlaybackService {
         durationMs: track.duration_ms,
       });
 
-      // 2. Update Browser's Media Session (prevents Webview from hijacking OS media keys silently)
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: track.title,
@@ -267,18 +194,13 @@ export class PlaybackService {
           artwork: coverUrl ? [{ src: coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
         });
 
-        // Delegate browser media actions back to Tauri (or Pinia)
-        // We dispatch standard custom events so the store can pick them up if needed,
-        // but the store is already listening to Tauri events. To ensure they work 
-        // regardless of who catches the key (Webview vs Souvlaki), we emit window events.
         navigator.mediaSession.setActionHandler('play', () => { window.dispatchEvent(new Event('media-play')); });
         navigator.mediaSession.setActionHandler('pause', () => { window.dispatchEvent(new Event('media-pause')); });
         navigator.mediaSession.setActionHandler('previoustrack', () => { window.dispatchEvent(new Event('media-prev')); });
         navigator.mediaSession.setActionHandler('nexttrack', () => { window.dispatchEvent(new Event('media-next')); });
       }
-
     } catch (e) {
-      console.error('Failed to update media metadata', e);
+      console.error(e);
     }
   }
 
@@ -288,9 +210,6 @@ export class PlaybackService {
         playing,
         positionMs: positionSeconds ? Math.floor(positionSeconds * 1000) : undefined,
       });
-    } catch (e) {
-      console.error('Failed to update playback state', e);
-    }
+    } catch (e) { }
   }
 }
-

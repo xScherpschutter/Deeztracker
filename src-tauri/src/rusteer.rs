@@ -77,6 +77,8 @@ pub struct StreamingResult {
     pub artist: String,
     /// Content length in bytes.
     pub content_length: u64,
+    /// Total original file size (from Content-Range).
+    pub total_size: Option<u64>,
     /// The stream reader to consume the decrypted audio bytes.
     pub stream: tokio::io::ReadHalf<tokio::io::DuplexStream>,
 }
@@ -88,6 +90,7 @@ impl std::fmt::Debug for StreamingResult {
             .field("title", &self.title)
             .field("artist", &self.artist)
             .field("content_length", &self.content_length)
+            .field("total_size", &self.total_size)
             .field("stream", &"<Opaque AsyncRead>")
             .finish()
     }
@@ -116,31 +119,21 @@ impl BatchDownloadResult {
     }
 }
 
+use std::sync::{Arc, Mutex};
+
+/// Cache for the current track's media URL to speed up seeking.
+#[derive(Debug, Clone)]
+struct StreamCache {
+    track_id: String,
+    media_url: String,
+    title: String,
+    artist: String,
+    quality: DownloadQuality,
+}
+
 /// Main Rusteer interface.
 ///
 /// Provides a unified API for downloading music and fetching metadata.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use rusteer::Rusteer;
-///
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create instance with ARL token
-///     let dz = Rusteer::new("your_arl_token").await?;
-///
-///     // Download a track
-///     let result = dz.download_track("3135556", ".").await?;
-///     println!("Downloaded: {}", result.path.display());
-///
-///     // Get album metadata
-///     let album = dz.get_album("302127").await?;
-///     println!("Album: {} ({} tracks)", album.title, album.total_tracks);
-///
-///     Ok(())
-/// }
-/// ```
 #[derive(Debug, Clone)]
 pub struct Rusteer {
     public_api: DeezerApi,
@@ -150,6 +143,8 @@ pub struct Rusteer {
     embed_tags: bool,
     /// Default output directory for downloads.
     output_dir: PathBuf,
+    /// Cache for seeking in the same track.
+    stream_cache: Arc<Mutex<Option<StreamCache>>>,
 }
 
 impl Rusteer {
@@ -174,6 +169,7 @@ impl Rusteer {
             preferred_quality: DownloadQuality::default(),
             embed_tags: true,
             output_dir: PathBuf::from("downloads"),
+            stream_cache: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -248,7 +244,9 @@ impl Rusteer {
 
     /// Get artist's top tracks.
     pub async fn get_artist_top_tracks(&self, artist_id: &str, limit: u32) -> Result<Vec<Track>> {
-        self.public_api.get_artist_top_tracks(artist_id, limit).await
+        self.public_api
+            .get_artist_top_tracks(artist_id, limit)
+            .await
     }
 
     /// Get artist's albums.
@@ -275,21 +273,34 @@ impl Rusteer {
     /// This implementation finds related artists and mixes their top tracks
     /// to provide a high-quality discovery experience with different artists.
     pub async fn get_track_radio(&self, track_id: &str) -> Result<Vec<Track>> {
-        println!("DEBUG: Generating smart discovery mix for track {}", track_id);
-        
+        println!(
+            "DEBUG: Generating smart discovery mix for track {}",
+            track_id
+        );
+
         // 1. Get current track metadata to find the artist
         let track = self.get_track(track_id).await?;
         let primary_artist = match track.artists.first() {
             Some(a) => a,
             None => return Ok(Vec::new()),
         };
-        let primary_artist_id = primary_artist.ids.deezer.as_ref().ok_or_else(|| DeezerError::NoDataApi("No artist ID".to_string()))?;
+        let primary_artist_id = primary_artist
+            .ids
+            .deezer
+            .as_ref()
+            .ok_or_else(|| DeezerError::NoDataApi("No artist ID".to_string()))?;
 
         // 2. Get related artists
-        let related_artists = self.public_api.get_related_artists(primary_artist_id).await.unwrap_or_default();
-        
+        let related_artists = self
+            .public_api
+            .get_related_artists(primary_artist_id)
+            .await
+            .unwrap_or_default();
+
         if related_artists.is_empty() {
-            println!("DEBUG: No related artists found, falling back to top tracks of primary artist");
+            println!(
+                "DEBUG: No related artists found, falling back to top tracks of primary artist"
+            );
             return self.get_artist_top_tracks(primary_artist_id, 25).await;
         }
 
@@ -310,13 +321,21 @@ impl Rusteer {
         let mut rng = rand::thread_rng();
         mix_tracks.shuffle(&mut rng);
 
-        println!("DEBUG: Smart mix generated with {} tracks from related artists", mix_tracks.len());
-        
+        println!(
+            "DEBUG: Smart mix generated with {} tracks from related artists",
+            mix_tracks.len()
+        );
+
         Ok(mix_tracks)
     }
 
     /// Search for playlists.
-    pub async fn search_playlists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Playlist>> {
+    pub async fn search_playlists(
+        &self,
+        query: &str,
+        limit: u32,
+        index: u32,
+    ) -> Result<Vec<Playlist>> {
         self.public_api.search_playlists(query, limit, index).await
     }
 
@@ -336,38 +355,101 @@ impl Rusteer {
     ///
     /// The decryption happens on-the-fly, allowing immediate playback.
     /// This bypasses embedding metadata tags on the file.
-    pub async fn stream_track(&self, track_id: &str) -> Result<StreamingResult> {
-        // Get track metadata
-        let track = self.public_api.get_track(track_id).await?;
-        let artist = track.artists_string(", ");
-        let title = track.title.clone();
+    pub async fn stream_track(
+        &self,
+        track_id: &str,
+        start_byte: u64,
+        end_byte: Option<u64>,
+    ) -> Result<StreamingResult> {
+        // Check cache for faster seeking
+        let cached = {
+            let cache = self.stream_cache.lock().unwrap();
+            cache.as_ref().filter(|c| c.track_id == track_id).cloned()
+        };
 
-        // Get song data from gateway
-        let song_data = self.gateway_api.get_song_data(track_id).await?;
+        let (media_url_str, quality, title, artist) = if let Some(c) = cached {
+            (c.media_url, c.quality, c.title, c.artist)
+        } else {
+            // Get track metadata
+            let track = self.public_api.get_track(track_id).await?;
+            let artist = track.artists_string(", ");
+            let title = track.title.clone();
 
-        if !song_data.readable {
-            return Err(DeezerError::TrackNotFound(format!(
-                "Track {} is not readable",
-                track_id
-            )));
-        }
+            // Get song data from gateway
+            let song_data = self.gateway_api.get_song_data(track_id).await?;
 
-        let track_token = song_data
-            .track_token
-            .ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
+            if !song_data.readable {
+                return Err(DeezerError::TrackNotFound(format!(
+                    "Track {} is not readable",
+                    track_id
+                )));
+            }
 
-        // Find available quality
-        let (media_url, quality) = self.find_media_url(&track_token).await?;
+            let track_token = song_data
+                .track_token
+                .ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
+
+            // Find available quality
+            let (media_url, quality) = self.find_media_url(&track_token).await?;
+
+            // Update cache
+            let mut cache = self.stream_cache.lock().unwrap();
+            *cache = Some(StreamCache {
+                track_id: track_id.to_string(),
+                media_url: media_url.url.clone(),
+                title: title.clone(),
+                artist: artist.clone(),
+                quality,
+            });
+
+            (media_url.url, quality, title, artist)
+        };
 
         // Open up a channel that we can pipe bytes into
-        let (mut tx, rx) = tokio::io::duplex(1024 * 1024); // 1 MB buffer
+        let (mut tx, rx) = tokio::io::duplex(5 * 1024 * 1024); // 5 MB buffer
 
         // Spawn a background task to drive the chunks download and decrypting them on the fly
         let client = reqwest::Client::new();
         let track_id_cloned = track_id.to_string();
 
-        let initial_res = client.get(&media_url.url).send().await.map_err(|e| DeezerError::ApiError(e.to_string()))?;
+        let req_start = start_byte - (start_byte % 2048);
+        let padding_to_skip = (start_byte - req_start) as usize;
+
+        let mut req = client.get(&media_url_str);
+
+        // Add Range header
+        let range_header = match end_byte {
+            Some(end) => format!("bytes={}-{}", req_start, end),
+            None => format!("bytes={}-", req_start),
+        };
+        req = req.header("Range", range_header);
+
+        let initial_res = req
+            .send()
+            .await
+            .map_err(|e| DeezerError::ApiError(e.to_string()))?;
         let content_length = initial_res.content_length().unwrap_or(0);
+
+        let actual_content_length = if content_length > padding_to_skip as u64 {
+            content_length - padding_to_skip as u64
+        } else {
+            0
+        };
+
+        let mut total_size = None;
+        if let Some(range_val) = initial_res.headers().get(reqwest::header::CONTENT_RANGE) {
+            if let Ok(range_str) = range_val.to_str() {
+                if let Some(slash_idx) = range_str.find('/') {
+                    let total_str = &range_str[slash_idx + 1..];
+                    if let Ok(total) = total_str.parse::<u64>() {
+                        total_size = Some(total);
+                    }
+                }
+            }
+        }
+        if total_size.is_none() && content_length > 0 {
+            total_size = Some(content_length);
+        }
 
         tokio::spawn(async move {
             use futures_util::StreamExt;
@@ -376,7 +458,8 @@ impl Rusteer {
             let key = crypto::calc_blowfish_key(&track_id_cloned);
 
             let mut buffer = Vec::new();
-            let mut block_count = 0;
+            let mut global_block_index = req_start / 2048;
+            let mut skipped_padding = false;
 
             while let Some(chunk_res) = byte_stream.next().await {
                 match chunk_res {
@@ -386,17 +469,22 @@ impl Rusteer {
                         while buffer.len() >= 2048 {
                             let block: Vec<u8> = buffer.drain(..2048).collect();
 
-                            let processed = if block_count % 3 == 0 {
+                            let mut processed = if global_block_index % 3 == 0 {
                                 crypto::decrypt_blowfish_chunk(&block, &key)
                             } else {
                                 block
                             };
 
+                            if !skipped_padding {
+                                processed = processed[padding_to_skip..].to_vec();
+                                skipped_padding = true;
+                            }
+
                             if tx.write_all(&processed).await.is_err() {
                                 return;
                             }
 
-                            block_count += 1;
+                            global_block_index += 1;
                         }
                     }
                     Err(e) => {
@@ -408,8 +496,18 @@ impl Rusteer {
 
             // Push remaining bytes
             if !buffer.is_empty() {
-                if tx.write_all(&buffer).await.is_err() {
-                    return;
+                let mut processed = buffer;
+                if !skipped_padding {
+                    if processed.len() > padding_to_skip {
+                        processed = processed[padding_to_skip..].to_vec();
+                    } else {
+                        processed = Vec::new();
+                    }
+                }
+                if !processed.is_empty() {
+                    if tx.write_all(&processed).await.is_err() {
+                        return;
+                    }
                 }
             }
 
@@ -423,7 +521,8 @@ impl Rusteer {
             quality,
             title,
             artist,
-            content_length,
+            content_length: actual_content_length,
+            total_size,
             stream: reader,
         })
     }

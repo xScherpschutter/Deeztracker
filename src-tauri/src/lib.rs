@@ -1,5 +1,6 @@
 // Rusteer Modules
 pub mod api;
+pub mod audio_player;
 pub mod converters;
 pub mod crypto;
 pub mod database;
@@ -15,15 +16,11 @@ pub use models::{Album, Artist, Playlist, Track};
 pub use rusteer::{BatchDownloadResult, DownloadQuality, DownloadResult, Rusteer};
 
 use souvlaki::{MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
-use std::collections::HashMap;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
-use tokio::io::AsyncReadExt;
 
 // Shared State to hold Rusteer instance
 pub struct RusteerState(pub Arc<std::sync::Mutex<Option<Rusteer>>>);
@@ -33,10 +30,6 @@ pub struct StreamServerState {
     pub base_url: String,
 }
 
-#[tauri::command]
-fn get_streaming_base_url(state: tauri::State<'_, StreamServerState>) -> String {
-    state.base_url.clone()
-}
 
 #[tauri::command]
 async fn login(arl: String, state: tauri::State<'_, RusteerState>) -> Result<bool, String> {
@@ -257,153 +250,6 @@ async fn get_track_radio(
         .map_err(|e| e.to_string())
 }
 
-/// Synchronous wrapper that reads from an async DuplexStream.
-/// Used only during the initial download-to-tempfile phase.
-struct SyncStreamReader {
-    inner: tokio::io::ReadHalf<tokio::io::DuplexStream>,
-    runtime: tokio::runtime::Handle,
-}
-
-impl std::io::Read for SyncStreamReader {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.runtime.block_on(async { self.inner.read(buf).await })
-    }
-}
-
-/// Parse a Range header value like "bytes=1234-" or "bytes=1234-5678"
-/// Returns (start, optional_end).
-fn parse_range_header(header_value: &str) -> Option<(u64, Option<u64>)> {
-    let s = header_value.strip_prefix("bytes=")?;
-    let mut parts = s.splitn(2, '-');
-    let start_str = parts.next()?;
-    let end_str = parts.next().unwrap_or("");
-
-    let start: u64 = start_str.parse().ok()?;
-    let end: Option<u64> = if end_str.is_empty() {
-        None
-    } else {
-        end_str.parse().ok()
-    };
-    Some((start, end))
-}
-
-/// Download and decrypt a track into a temporary file, returning its path.
-fn download_track_to_tempfile(
-    track_id: &str,
-    rusteer_state: &Arc<std::sync::Mutex<Option<Rusteer>>>,
-    runtime: &tokio::runtime::Handle,
-) -> Option<PathBuf> {
-    let state = rusteer_state.clone();
-    let tid = track_id.to_string();
-    let stream_res = runtime.block_on(async move {
-        let guard = state.lock().ok()?;
-        if let Some(ref rusteer) = *guard {
-            rusteer.stream_track(&tid).await.ok()
-        } else {
-            None
-        }
-    })?;
-
-    let tmp_path = std::env::temp_dir().join(format!("deeztracker_{}.mp3", track_id));
-    let mut file = std::fs::File::create(&tmp_path).ok()?;
-    let mut reader = SyncStreamReader {
-        inner: stream_res.stream,
-        runtime: runtime.clone(),
-    };
-    std::io::copy(&mut reader, &mut file).ok()?;
-    Some(tmp_path)
-}
-
-/// Serve a cached file responding to an HTTP request, supporting Range headers.
-fn serve_file_request(request: tiny_http::Request, file_path: &PathBuf) {
-    let file_len = match std::fs::metadata(file_path) {
-        Ok(m) => m.len(),
-        Err(_) => {
-            let _ = request
-                .respond(tiny_http::Response::from_string("File Error").with_status_code(500));
-            return;
-        }
-    };
-
-    // Check for Range header
-    let range_header = request
-        .headers()
-        .iter()
-        .find(|h| h.field.as_str().to_string().to_lowercase() == "range")
-        .map(|h| h.value.as_str().to_string());
-
-    if let Some(ref range_val) = range_header {
-        if let Some((start, end_opt)) = parse_range_header(range_val) {
-            let end = end_opt.unwrap_or(file_len - 1).min(file_len - 1);
-            let chunk_len = end - start + 1;
-
-            let mut file = match std::fs::File::open(file_path) {
-                Ok(f) => f,
-                Err(_) => {
-                    let _ = request.respond(
-                        tiny_http::Response::from_string("File Error").with_status_code(500),
-                    );
-                    return;
-                }
-            };
-            if file.seek(SeekFrom::Start(start)).is_err() {
-                let _ = request
-                    .respond(tiny_http::Response::from_string("Seek Error").with_status_code(500));
-                return;
-            }
-            let limited_reader = file.take(chunk_len);
-
-            let content_range = format!("bytes {}-{}/{}", start, end, file_len);
-            let response = tiny_http::Response::new(
-                tiny_http::StatusCode(206),
-                vec![
-                    tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"audio/mpeg"[..])
-                        .unwrap(),
-                    tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..])
-                        .unwrap(),
-                    tiny_http::Header::from_bytes(&b"Accept-Ranges"[..], &b"bytes"[..]).unwrap(),
-                    tiny_http::Header::from_bytes(&b"Content-Range"[..], content_range.as_bytes())
-                        .unwrap(),
-                    tiny_http::Header::from_bytes(
-                        &b"Content-Length"[..],
-                        chunk_len.to_string().as_bytes(),
-                    )
-                    .unwrap(),
-                ],
-                limited_reader,
-                Some(chunk_len as usize),
-                None,
-            );
-            let _ = request.respond(response);
-            return;
-        }
-    }
-
-    // No Range header — serve the full file
-    let file = match std::fs::File::open(file_path) {
-        Ok(f) => f,
-        Err(_) => {
-            let _ = request
-                .respond(tiny_http::Response::from_string("File Error").with_status_code(500));
-            return;
-        }
-    };
-    let response = tiny_http::Response::new(
-        tiny_http::StatusCode(200),
-        vec![
-            tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"audio/mpeg"[..]).unwrap(),
-            tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
-            tiny_http::Header::from_bytes(&b"Accept-Ranges"[..], &b"bytes"[..]).unwrap(),
-            tiny_http::Header::from_bytes(&b"Content-Length"[..], file_len.to_string().as_bytes())
-                .unwrap(),
-        ],
-        file,
-        Some(file_len as usize),
-        None,
-    );
-    let _ = request.respond(response);
-}
-
 #[tauri::command]
 async fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|e| e.to_string())
@@ -590,83 +436,10 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            let rusteer_state = app.state::<RusteerState>().0.clone();
-            let server = tiny_http::Server::http("127.0.0.1:0").map_err(|e| e.to_string())?;
-            let port = match server.server_addr() {
-                tiny_http::ListenAddr::IP(addr) => addr.port(),
-                _ => 0,
-            };
-            let base_url = format!("http://localhost:{}", port);
-            app.manage(StreamServerState { base_url });
+            // Initialize native Audio Player instance
+            let audio_player = audio_player::AudioPlayerState::new(app.handle().clone());
+            app.manage(audio_player);
 
-            let runtime_handle = tokio::runtime::Handle::current();
-            std::thread::spawn(move || {
-                // Cache: (order_of_insertion, track_id -> path to temp file)
-                // Allows up to 3 tracks to support prebuffering the next track
-                let file_cache: Arc<std::sync::Mutex<(Vec<String>, HashMap<String, PathBuf>)>> =
-                    Arc::new(std::sync::Mutex::new((Vec::new(), HashMap::new())));
-
-                for request in server.incoming_requests() {
-                    let url = request.url().to_string();
-                    if url.starts_with("/stream/") {
-                        let track_id = url.trim_start_matches("/stream/").to_string();
-                        let state = rusteer_state.clone();
-                        let handle = runtime_handle.clone();
-                        let cache = file_cache.clone();
-
-                        std::thread::spawn(move || {
-                            // Check cache first
-                            let cached_path = {
-                                let guard = cache.lock().unwrap();
-                                guard.1.get(&track_id).cloned()
-                            };
-
-                            if let Some(path) = cached_path {
-                                // File already cached — serve directly (supports Range)
-                                if path.exists() {
-                                    serve_file_request(request, &path);
-                                    return;
-                                }
-                                // File was deleted, remove from cache
-                                let mut guard = cache.lock().unwrap();
-                                guard.1.remove(&track_id);
-                                guard.0.retain(|id| id != &track_id);
-                            }
-
-                            // Download + decrypt to temp file
-                            if let Some(tmp_path) =
-                                download_track_to_tempfile(&track_id, &state, &handle)
-                            {
-                                // Clean up old cached files, keeping maximum of 3 tracks
-                                {
-                                    let mut guard = cache.lock().unwrap();
-                                    guard.0.push(track_id.clone());
-                                    guard.1.insert(track_id.clone(), tmp_path.clone());
-
-                                    while guard.0.len() > 3 {
-                                        if let Some(old_track_id) = guard.0.first().cloned() {
-                                            guard.0.remove(0);
-                                            if let Some(old_path) = guard.1.remove(&old_track_id) {
-                                                let _ = std::fs::remove_file(&old_path);
-                                            }
-                                        }
-                                    }
-                                }
-                                serve_file_request(request, &tmp_path);
-                            } else {
-                                let _ = request.respond(
-                                    tiny_http::Response::from_string("Not Found")
-                                        .with_status_code(404),
-                                );
-                            }
-                        });
-                    } else {
-                        let _ = request.respond(
-                            tiny_http::Response::from_string("Not Found").with_status_code(404),
-                        );
-                    }
-                }
-            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -687,7 +460,6 @@ pub fn run() {
             get_track_radio,
             update_media_metadata,
             update_playback_state,
-            get_streaming_base_url,
             get_charts,
             get_autostart,
             set_autostart,
@@ -700,7 +472,12 @@ pub fn run() {
             database::get_playlists,
             database::add_track_to_playlist,
             database::remove_track_from_playlist,
-            database::get_playlist_tracks
+            database::get_playlist_tracks,
+            audio_player::audio_play_native,
+            audio_player::audio_pause_native,
+            audio_player::audio_resume_native,
+            audio_player::audio_stop_native,
+            audio_player::audio_set_volume_native
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

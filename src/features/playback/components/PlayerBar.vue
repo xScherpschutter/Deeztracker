@@ -8,23 +8,20 @@ import AddToPlaylistModal from '../../library/components/AddToPlaylistModal.vue'
 
 const playbackStore = usePlaybackStore();
 const libraryStore = useLibraryStore();
-const isSeeking = ref(false);
-const seekValue = ref(0);
 const showFullscreen = ref(false);
 const isPlaylistModalOpen = ref(false);
+const isDragging = ref(false);
+const localProgress = ref(0);
 
 const onSeekInput = (e: Event) => {
-  isSeeking.value = true;
-  seekValue.value = parseFloat((e.target as HTMLInputElement).value);
+  isDragging.value = true;
+  localProgress.value = parseFloat((e.target as HTMLInputElement).value) || 0;
 };
 
 const onSeekChange = (e: Event) => {
-  const value = parseFloat((e.target as HTMLInputElement).value);
+  const value = parseFloat((e.target as HTMLInputElement).value) || 0;
   playbackStore.seek(value);
-  // Important: Keep isSeeking true for a moment to let the browser catch up
-  setTimeout(() => {
-    isSeeking.value = false;
-  }, 500);
+  isDragging.value = false;
 };
 
 const onVolumeChange = (e: Event) => {
@@ -142,19 +139,19 @@ const openPlaylistModal = () => {
 
       <!-- Progress Bar -->
       <div class="w-full flex items-center gap-2 group">
-        <span class="text-[10px] text-textGray w-8 text-right font-mono">{{ formatDuration((isSeeking ? seekValue : playbackStore.progress) * 1000) }}</span>
+        <span class="text-[10px] text-textGray w-8 text-right font-mono">{{ formatDuration((isDragging ? localProgress : playbackStore.progress) * 1000) }}</span>
         <input 
           type="range" 
-          :value="isSeeking ? seekValue : playbackStore.progress" 
+          :value="isDragging ? localProgress : playbackStore.progress" 
           :max="playbackStore.duration || 0" 
           step="0.1"
-          :disabled="playbackStore.isBuffering"
           @input="onSeekInput"
           @change="onSeekChange"
-          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all"
-          :class="playbackStore.isBuffering ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'"
+          @mousedown="isDragging = true"
+          @touchstart="isDragging = true"
+          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all cursor-pointer"
           :style="{
-            background: `linear-gradient(to right, #00AAFF ${ ((isSeeking ? seekValue : playbackStore.progress) / (playbackStore.duration || 1)) * 100 }%, rgba(255, 255, 255, 0.1) 0)`
+            background: `linear-gradient(to right, #00AAFF ${ ((isDragging ? localProgress : playbackStore.progress) / (playbackStore.duration || 1)) * 100 }%, rgba(255, 255, 255, 0.1) 0)`
           }"
         >
         <span class="text-[10px] text-textGray w-8 font-mono">{{ formatDuration(playbackStore.duration * 1000) }}</span>

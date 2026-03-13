@@ -120,7 +120,8 @@ export const usePlaybackStore = defineStore('playback', {
       if (!track) return;
 
       // Set duration from metadata immediately (in seconds)
-      this.duration = track.duration_ms / 1000;
+      const trackDurationMs = track.duration_ms || (track as any).duration * 1000 || 200000;
+      this.duration = trackDurationMs / 1000;
       this.isBuffering = true;
 
       // Fetch lyrics in parallel
@@ -134,7 +135,7 @@ export const usePlaybackStore = defineStore('playback', {
         () => this.isPlaying = false,
         (progress, browserDuration) => {
           this.progress = progress;
-          // Only trust browser duration if it's a browser valid number and finite
+          // Only trust browser duration if it's a browser valid number and strictly greater than 0
           if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
             this.duration = browserDuration;
           }
@@ -234,26 +235,30 @@ export const usePlaybackStore = defineStore('playback', {
           this.currentIndex = this.shuffledIndices[currentShufflePos - 1];
         } else if (this.repeatMode === 'all') {
           this.currentIndex = this.shuffledIndices[this.shuffledIndices.length - 1];
+        } else {
+          this.seek(0);
+          return;
         }
       } else {
         if (this.currentIndex > 0) {
           this.currentIndex--;
         } else if (this.repeatMode === 'all') {
           this.currentIndex = this.queue.length - 1;
+        } else {
+          this.seek(0);
+          return;
         }
       }
       this.startPlayback();
     },
 
     seek(seconds: number) {
-      if (this.isBuffering) return;
       PlaybackService.getInstance().seek(seconds);
-      this.progress = seconds;
     },
 
     setVolume(volume: number) {
-      this.volume = volume;
-      PlaybackService.getInstance().setVolume(volume);
+      this.volume = Math.min(Math.max(volume, 0), 1);
+      PlaybackService.getInstance().setVolume(this.volume);
     },
 
     stop() {
@@ -282,6 +287,7 @@ export const usePlaybackStore = defineStore('playback', {
     resetProgress() {
       this.progress = 0;
       this.duration = 0;
+      this.isBuffering = false;
     },
 
     onTrackEnd() {

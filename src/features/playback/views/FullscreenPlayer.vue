@@ -4,6 +4,19 @@ import { computed, ref, watch, onMounted, nextTick } from 'vue';
 
 const store = usePlaybackStore();
 const lyricsList = ref<HTMLElement | null>(null);
+const isDragging = ref(false);
+const localProgress = ref(0);
+
+const onSeekInput = (e: Event) => {
+  isDragging.value = true;
+  localProgress.value = Number((e.target as HTMLInputElement).value) || 0;
+};
+
+const onSeekChange = (e: Event) => {
+  const value = Number((e.target as HTMLInputElement).value) || 0;
+  store.seek(value);
+  isDragging.value = false;
+};
 
 const currentTrack = computed(() => store.currentTrack);
 const lyrics = computed(() => store.lyrics);
@@ -70,7 +83,7 @@ const seekTo = (timeMs: number) => {
     <div class="flex-1 flex flex-col md:flex-row items-center justify-center gap-12 px-8 pb-8 overflow-hidden min-h-0">
       
       <!-- Left Column: Cover + Info + Controls (all centered) -->
-      <div class="flex flex-col items-center justify-center">
+      <div class="flex-1 flex flex-col items-center justify-center max-w-md">
         <!-- Album Cover -->
         <div class="w-56 h-56 md:w-64 md:h-64 lg:w-72 lg:h-72 shadow-2xl rounded-xl overflow-hidden flex-shrink-0 relative">
           <img :src="currentTrack.album.images[0]?.url" 
@@ -81,28 +94,31 @@ const seekTo = (timeMs: number) => {
         </div>
 
         <!-- Track Info -->
-        <div class="mt-6 text-center max-w-[280px]">
+        <div class="mt-6 text-center w-full px-4">
           <h1 class="text-2xl font-bold truncate">{{ currentTrack.title }}</h1>
           <p class="text-base text-white/60 mt-1 truncate">{{ currentTrack.artists.map(a => a.name).join(', ') }}</p>
           <p class="text-sm text-white/40 mt-0.5 truncate">{{ currentTrack.album.title }}</p>
         </div>
 
         <!-- Progress Bar -->
-        <div class="w-72 mt-6 flex items-center gap-3">
-          <span class="text-[11px] text-white/50 font-mono w-9 text-right">{{ formatTime(store.progress) }}</span>
+        <div class="w-full mt-6 flex items-center gap-3">
+          <span class="text-[11px] text-white/50 font-mono w-9 text-right">{{ formatTime(isDragging ? localProgress : store.progress) }}</span>
           <input type="range" 
-                 :value="store.progress" 
+                 :value="isDragging ? localProgress : store.progress" 
                  :max="store.duration || 0"
                  step="0.1"
                  :disabled="store.isBuffering"
-                 @input="(e) => store.seek(Number((e.target as HTMLInputElement).value))"
+                 @input="onSeekInput"
+                 @change="onSeekChange"
+                 @mousedown="isDragging = true"
+                 @touchstart="isDragging = true"
                  class="flex-1 accent-white h-1 rounded-lg"
                  :class="store.isBuffering ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'" />
           <span class="text-[11px] text-white/50 font-mono w-9">{{ formatTime(store.duration) }}</span>
         </div>
 
         <!-- Playback Controls -->
-        <div class="flex justify-center md:justify-start items-center gap-8">
+        <div class="w-full flex justify-between items-center mt-6 px-2">
           <!-- Shuffle -->
           <button 
             @click="store.toggleShuffle"
@@ -135,7 +151,7 @@ const seekTo = (timeMs: number) => {
             :class="store.repeatMode !== 'off' ? 'text-white' : 'text-white/30 hover:text-white/50'"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            <span v-if="store.repeatMode === 'one'" class="absolute top-1 right-1 text-[10px] font-bold bg-white text-black w-3.5 h-3.5 rounded-full flex items-center justify-center">1</span>
+            <span v-if="store.repeatMode === 'one'" class="absolute -top-1 -right-1 text-[10px] font-bold bg-white text-black w-3.5 h-3.5 rounded-full flex items-center justify-center">1</span>
           </button>
         </div>
 
