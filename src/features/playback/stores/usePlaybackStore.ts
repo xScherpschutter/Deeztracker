@@ -84,6 +84,62 @@ export const usePlaybackStore = defineStore('playback', {
       window.addEventListener('media-pause', handlePause);
       window.addEventListener('media-next', handleNext);
       window.addEventListener('media-prev', handlePrev);
+
+      // Sync with backend on init
+      await this.syncWithBackend();
+    },
+
+    async syncWithBackend() {
+      try {
+        const state = await invoke<{ track_id: string | null, position_ms: number, is_playing: boolean }>('audio_get_state');
+        if (state.track_id) {
+          // If we have a track in backend but not in frontend, or it's different
+          if (this.currentTrack?.ids.deezer !== state.track_id) {
+            // We need the full track object. If it's in the queue, we use it.
+            let track = this.queue.find(t => t.ids.deezer === state.track_id);
+            if (!track) {
+              // Fetch track info if not in queue
+              try {
+                track = await invoke<Track>('get_track', { id: state.track_id });
+                this.queue = [track];
+                this.currentIndex = 0;
+              } catch (e) {
+                // If we can't get the track, we can't sync perfectly, but we at least know it's playing
+                console.error('Failed to fetch track for sync:', e);
+              }
+            } else {
+              this.currentIndex = this.queue.indexOf(track);
+            }
+          }
+
+          if (this.currentTrack) {
+            this.progress = state.position_ms / 1000;
+            this.isPlaying = state.is_playing;
+            this.duration = (this.currentTrack.duration_ms || 0) / 1000;
+            
+            // Re-attach listeners in service
+            const service = PlaybackService.getInstance();
+            service.reconnect(
+              this.currentTrack,
+              () => this.onTrackEnd(),
+              () => { this.isPlaying = true; },
+              () => this.isPlaying = false,
+              (progress, browserDuration) => {
+                this.progress = progress;
+                if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
+                  this.duration = browserDuration;
+                }
+              }
+            );
+
+            if (this.lyrics.length === 0) {
+              this.fetchLyrics(this.currentTrack);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync with backend:', e);
+      }
     },
 
     async playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {

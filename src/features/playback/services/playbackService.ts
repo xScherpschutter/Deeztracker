@@ -53,6 +53,22 @@ export class PlaybackService {
     }
   }
 
+  // Re-connect callbacks without triggering a new play
+  reconnect(
+    track: Track,
+    onEnd: () => void,
+    onPlay: () => void,
+    onPause: () => void,
+    onProgress: (progress: number, duration: number) => void,
+  ) {
+    this._currentTrackId = track.ids.deezer || null;
+    this.currentDuration = (track.duration_ms || 200000) / 1000.0;
+    this.onEndCallback = onEnd;
+    this.onProgressCallback = onProgress;
+    this.onPlayCallback = onPlay;
+    this.onPauseCallback = onPause;
+  }
+
   async play(
     track: Track,
     onEnd: () => void,

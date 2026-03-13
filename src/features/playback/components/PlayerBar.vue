@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { formatDuration } from '../../search/utils/time';
@@ -12,6 +12,10 @@ const showFullscreen = ref(false);
 const isPlaylistModalOpen = ref(false);
 const isDragging = ref(false);
 const localProgress = ref(0);
+
+onMounted(() => {
+  playbackStore.initMediaControls();
+});
 
 const onSeekInput = (e: Event) => {
   isDragging.value = true;

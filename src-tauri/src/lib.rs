@@ -185,6 +185,12 @@ async fn search_playlists(
 }
 
 #[tauri::command]
+async fn get_track(id: String, state: tauri::State<'_, RusteerState>) -> Result<Track, String> {
+    let rusteer = get_rusteer(&state)?;
+    rusteer.get_track(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn get_album(id: String, state: tauri::State<'_, RusteerState>) -> Result<Album, String> {
     let rusteer = get_rusteer(&state)?;
     rusteer.get_album(&id).await.map_err(|e| e.to_string())
@@ -343,13 +349,19 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .setup(|app| {
             // Initialize Media Controls (Souvlaki)
             #[cfg(not(target_os = "android"))]
             {
                 let config = PlatformConfig {
-                    dbus_name: "deeztracker_streaming",
-                    display_name: "Deeztracker Streaming",
+                    dbus_name: "Deeztracker",
+                    display_name: "Deeztracker",
                     hwnd: None,
                 };
                 let mut controls =
@@ -444,6 +456,7 @@ pub fn run() {
             search_albums,
             search_artists,
             search_playlists,
+            get_track,
             get_album,
             get_artist,
             get_playlist,
@@ -465,6 +478,7 @@ pub fn run() {
             database::add_track_to_playlist,
             database::remove_track_from_playlist,
             database::get_playlist_tracks,
+            audio_player::audio_get_state,
             audio_player::audio_play_native,
             audio_player::audio_preload_native,
             audio_player::audio_pause_native,

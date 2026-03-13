@@ -4,8 +4,9 @@ use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::Arc;
 
 use crate::RusteerState;
 use crate::rusteer::ReadAndSeekAsync;
@@ -56,11 +57,19 @@ pub struct AudioPlayerState {
     pub tx: Sender<AudioCommand>,
     pub request_count: AtomicU64,
     pub current_track_id: Mutex<Option<String>>,
+    pub current_offset_ms: Arc<AtomicU64>,
+    pub is_playing: Arc<AtomicBool>,
 }
 
 impl AudioPlayerState {
     pub fn new(app_handle: AppHandle) -> Self {
         let (tx, rx) = channel::<AudioCommand>();
+        
+        let current_offset_ms = Arc::new(AtomicU64::new(0));
+        let is_playing = Arc::new(AtomicBool::new(false));
+
+        let offset_clone = current_offset_ms.clone();
+        let playing_clone = is_playing.clone();
 
         thread::spawn(move || {
             let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -73,34 +82,41 @@ impl AudioPlayerState {
                     Ok(cmd) => {
                         match cmd {
                             AudioCommand::Play(reader, offset, _id) => {
-                                current_offset_sec = 0.0; // Use rodio's internal pos
+                                current_offset_sec = 0.0;
                                 let decoder_res = rodio::Decoder::new(reader);
                                 match decoder_res {
                                     Ok(decoder) => {
                                         sink.stop();
                                         sink.set_volume(global_volume);
                                         sink.append(decoder);
-                                        // If we need to start from an offset, seek immediately
                                         if offset > 0.01 {
                                             let _ = sink.try_seek(Duration::from_secs_f64(offset));
                                         }
                                         sink.play();
+                                        playing_clone.store(true, Ordering::SeqCst);
                                         let _ = app_handle.emit("playback_progress_native", offset);
                                     }
                                     Err(_) => {}
                                 }
                             }
                             AudioCommand::Seek(offset) => {
-                                // INSTANT SEEK: Jump within the same decoder/sink
                                 if sink.try_seek(Duration::from_secs_f64(offset)).is_ok() {
                                     let _ = app_handle.emit("playback_progress_native", offset);
                                 }
                             }
-                            AudioCommand::Pause => sink.pause(),
-                            AudioCommand::Resume => sink.play(),
+                            AudioCommand::Pause => {
+                                sink.pause();
+                                playing_clone.store(false, Ordering::SeqCst);
+                            }
+                            AudioCommand::Resume => {
+                                sink.play();
+                                playing_clone.store(true, Ordering::SeqCst);
+                            }
                             AudioCommand::Stop => {
                                 sink.stop();
                                 current_offset_sec = -1.0;
+                                playing_clone.store(false, Ordering::SeqCst);
+                                offset_clone.store(0, Ordering::SeqCst);
                             }
                             AudioCommand::SetVolume(v) => {
                                 global_volume = v;
@@ -114,12 +130,18 @@ impl AudioPlayerState {
                                 if current_offset_sec >= 0.0 {
                                     let _ = app_handle.emit("playback_ended_native", ());
                                     current_offset_sec = -1.0;
+                                    playing_clone.store(false, Ordering::SeqCst);
+                                    offset_clone.store(0, Ordering::SeqCst);
                                 }
                             } else {
                                 let pos = sink.get_pos();
                                 let total_pos = pos.as_secs_f64();
+                                offset_clone.store((total_pos * 1000.0) as u64, Ordering::SeqCst);
+                                playing_clone.store(true, Ordering::SeqCst);
                                 let _ = app_handle.emit("playback_progress_native", total_pos);
                             }
+                        } else {
+                            playing_clone.store(false, Ordering::SeqCst);
                         }
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
@@ -131,11 +153,25 @@ impl AudioPlayerState {
             tx, 
             request_count: AtomicU64::new(0),
             current_track_id: Mutex::new(None),
+            current_offset_ms,
+            is_playing,
         }
     }
 }
 
 // ------ TAURI COMMANDS ------
+
+#[tauri::command]
+pub async fn audio_get_state(
+    player: State<'_, AudioPlayerState>,
+) -> Result<serde_json::Value, String> {
+    let current_id = player.current_track_id.lock().unwrap();
+    Ok(serde_json::json!({
+        "track_id": *current_id,
+        "position_ms": player.current_offset_ms.load(Ordering::SeqCst),
+        "is_playing": player.is_playing.load(Ordering::SeqCst),
+    }))
+}
 
 #[tauri::command]
 pub async fn audio_play_native(

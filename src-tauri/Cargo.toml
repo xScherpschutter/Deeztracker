@@ -1,10 +1,10 @@
 [package]
-name = "deeztracker-streaming"
+name = "deeztracker"
 version = "0.1.0"
-description = "Deeztracker Streaming"
-authors = ["xScherpschutter"]
+description = "Deeztracker"
+authors = ["Crowstar"]
 edition = "2021"
-default-run = "deeztracker-streaming"
+default-run = "deeztracker"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
