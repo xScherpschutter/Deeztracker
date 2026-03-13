@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { formatDuration } from '../../search/utils/time';
@@ -12,6 +12,14 @@ const showFullscreen = ref(false);
 const isPlaylistModalOpen = ref(false);
 const isDragging = ref(false);
 const localProgress = ref(0);
+
+const progressPercent = computed(() => {
+  const duration = playbackStore.duration || 1;
+  const progress = isDragging.value ? localProgress.value : playbackStore.progress;
+  return (progress / duration) * 100;
+});
+
+const volumePercent = computed(() => playbackStore.volume * 100);
 
 onMounted(() => {
   playbackStore.initMediaControls();
@@ -153,10 +161,8 @@ const openPlaylistModal = () => {
           @change="onSeekChange"
           @mousedown="isDragging = true"
           @touchstart="isDragging = true"
-          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all cursor-pointer"
-          :style="{
-            background: `linear-gradient(to right, #00AAFF ${ ((isDragging ? localProgress : playbackStore.progress) / (playbackStore.duration || 1)) * 100 }%, rgba(255, 255, 255, 0.1) 0)`
-          }"
+          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all cursor-pointer slider-progress"
+          :style="{ '--progress': `${progressPercent}%` }"
         >
         <span class="text-[10px] text-textGray w-8 font-mono">{{ formatDuration(playbackStore.duration * 1000) }}</span>
       </div>
@@ -173,10 +179,8 @@ const openPlaylistModal = () => {
           step="0.01" 
           :value="playbackStore.volume" 
           @input="onVolumeChange"
-          class="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white hover:h-1.5 transition-all"
-          :style="{
-            background: `linear-gradient(to right, white ${ playbackStore.volume * 100 }%, rgba(255, 255, 255, 0.1) 0)`
-          }"
+          class="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white hover:h-1.5 transition-all slider-volume"
+          :style="{ '--volume': `${volumePercent}%` }"
         >
       </div>
     </div>
@@ -199,5 +203,13 @@ input[type='range']::-webkit-slider-thumb {
 input[type='range']:active::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
+}
+
+.slider-progress {
+  background: linear-gradient(to right, #00AAFF var(--progress), rgba(255, 255, 255, 0.1) 0) !important;
+}
+
+.slider-volume {
+  background: linear-gradient(to right, white var(--volume), rgba(255, 255, 255, 0.1) 0) !important;
 }
 </style>

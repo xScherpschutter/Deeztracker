@@ -16,6 +16,8 @@ export class PlaybackService {
 
   private currentDuration = 0;
 
+  private lastProgressUpdate = 0;
+
   private constructor() {
     this.setupNativeListeners();
   }
@@ -31,6 +33,11 @@ export class PlaybackService {
     // @ts-ignore: Keeping the reference alive
     await listen<number>('playback_progress_native', (event) => {
       if (this.isSeeking) return;
+
+      const now = Date.now();
+      if (now - this.lastProgressUpdate < 150) return;
+      this.lastProgressUpdate = now;
+
       if (this.onProgressCallback && this.currentDuration > 0) {
         this.onProgressCallback(event.payload, this.currentDuration);
       }

@@ -144,7 +144,7 @@ onUnmounted(() => {
                   v-for="(track, index) in searchStore.results.tracks" 
                   :key="track.ids.deezer"
                   @click="playbackStore.playTrack(track)"
-                  class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
+                  class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                   :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
                 >
                   <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
@@ -210,7 +210,7 @@ onUnmounted(() => {
                 v-for="album in searchStore.results.albums" 
                 :key="album.ids.deezer"
                 @click="router.push(`/album/${album.ids.deezer}`)"
-                class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all hover:translate-y-[-4px] cursor-pointer"
+                class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all hover:translate-y-[-4px] cursor-pointer grid-item-optimized"
               >
                 <div class="aspect-square mb-4 shadow-2xl relative">
                   <img :src="getImageUrl(album.images)" class="w-full h-full object-cover rounded-lg" />
@@ -239,7 +239,7 @@ onUnmounted(() => {
                 v-for="artist in searchStore.results.artists" 
                 :key="artist.ids.deezer"
                 @click="router.push(`/artist/${artist.ids.deezer}`)"
-                class="group flex flex-col items-center text-center p-4 rounded-xl hover:bg-surface/40 transition-all cursor-pointer"
+                class="group flex flex-col items-center text-center p-4 rounded-xl hover:bg-surface/40 transition-all cursor-pointer grid-item-optimized"
               >
                 <div class="w-32 h-32 md:w-40 md:h-40 mb-4 shadow-2xl relative">
                   <img :src="getImageUrl(artist.images)" class="w-full h-full object-cover rounded-full" />
@@ -263,7 +263,7 @@ onUnmounted(() => {
                 v-for="playlist in searchStore.results.playlists" 
                 :key="playlist.ids.deezer"
                 @click="router.push(`/playlist/${playlist.ids.deezer}`)"
-                class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all cursor-pointer"
+                class="group bg-surface/30 p-4 rounded-xl border border-white/5 hover:bg-surface/60 transition-all cursor-pointer grid-item-optimized"
               >
                 <div class="aspect-square mb-4 shadow-2xl relative">
                   <img :src="getImageUrl(playlist.images)" class="w-full h-full object-cover rounded-lg" />
@@ -309,5 +309,15 @@ onUnmounted(() => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.list-item-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 64px;
+}
+
+.grid-item-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px 300px;
 }
 </style>

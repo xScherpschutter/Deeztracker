@@ -210,7 +210,7 @@ const cancelDeletePlaylist = () => {
                 v-for="(track, index) in filteredFavorites" 
                 :key="track.ids.deezer"
                 @click="playFavorite(track)"
-                class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
+                class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                 :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
                 <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
@@ -354,3 +354,24 @@ const cancelDeletePlaylist = () => {
     />
   </div>
 </template>
+
+<style scoped>
+.list-item-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 64px;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+</style>
