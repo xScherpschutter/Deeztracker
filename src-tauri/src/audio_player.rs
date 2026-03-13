@@ -1,15 +1,17 @@
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{OutputStream, Sink};
 use std::io::{Read, Result as IoResult, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 use crate::RusteerState;
+use crate::rusteer::ReadAndSeekAsync;
 
-// Synchronous wrapper around Tokio Duplex stream for Rodio's decoder.
 pub struct SyncStreamReader {
-    pub inner: tokio::io::ReadHalf<tokio::io::DuplexStream>,
+    pub inner: Box<dyn ReadAndSeekAsync + Send + Sync + Unpin>,
     pub runtime: tokio::runtime::Handle,
 }
 
@@ -28,33 +30,13 @@ impl Read for SyncStreamReader {
 }
 
 impl Seek for SyncStreamReader {
-    fn seek(&mut self, _pos: SeekFrom) -> IoResult<u64> {
-        Ok(0)
-    }
-}
-
-pub struct HeaderInjectReader<R: Read> {
-    pub inner: R,
-    pub injected: bool,
-}
-
-impl<R: Read> Read for HeaderInjectReader<R> {
-    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-        if !self.injected {
-            let dummy_frame: [u8; 10] =
-                [0xFF, 0xFB, 0x92, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-            let to_copy = std::cmp::min(buf.len(), dummy_frame.len());
-            buf[..to_copy].copy_from_slice(&dummy_frame[..to_copy]);
-            self.injected = true;
-            return Ok(to_copy);
-        }
-        self.inner.read(buf)
-    }
-}
-
-impl<R: Read + Seek> Seek for HeaderInjectReader<R> {
     fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
-        self.inner.seek(pos)
+        let handle = self.runtime.clone();
+        let inner = &mut self.inner;
+        handle.block_on(async {
+            use tokio::io::AsyncSeekExt;
+            inner.seek(pos).await
+        })
     }
 }
 
@@ -62,18 +44,18 @@ pub trait ReadAndSeek: Read + Seek {}
 impl<T: Read + Seek> ReadAndSeek for T {}
 
 pub enum AudioCommand {
-    Play(Box<dyn ReadAndSeek + Send + Sync>, f64),
+    Play(Box<dyn ReadAndSeek + Send + Sync>, f64, String),
+    Seek(f64),
     Pause,
     Resume,
     Stop,
     SetVolume(f32),
 }
 
-use std::sync::atomic::{AtomicU64, Ordering};
-
 pub struct AudioPlayerState {
     pub tx: Sender<AudioCommand>,
     pub request_count: AtomicU64,
+    pub current_track_id: Mutex<Option<String>>,
 }
 
 impl AudioPlayerState {
@@ -84,23 +66,34 @@ impl AudioPlayerState {
             let (_stream, handle) = OutputStream::try_default().unwrap();
             let sink = Sink::try_new(&handle).unwrap();
             let mut current_offset_sec = 0.0;
+            let mut global_volume = 1.0f32;
 
             loop {
                 match rx.recv_timeout(Duration::from_millis(50)) {
                     Ok(cmd) => {
                         match cmd {
-                            AudioCommand::Play(reader, offset) => {
-                                current_offset_sec = offset;
-                                match Decoder::new_mp3(reader) {
+                            AudioCommand::Play(reader, offset, _id) => {
+                                current_offset_sec = 0.0; // Use rodio's internal pos
+                                let decoder_res = rodio::Decoder::new(reader);
+                                match decoder_res {
                                     Ok(decoder) => {
                                         sink.stop();
+                                        sink.set_volume(global_volume);
                                         sink.append(decoder);
+                                        // If we need to start from an offset, seek immediately
+                                        if offset > 0.01 {
+                                            let _ = sink.try_seek(Duration::from_secs_f64(offset));
+                                        }
                                         sink.play();
                                         let _ = app_handle.emit("playback_progress_native", offset);
                                     }
-                                    Err(_e) => {
-                                         
-                                    }
+                                    Err(_) => {}
+                                }
+                            }
+                            AudioCommand::Seek(offset) => {
+                                // INSTANT SEEK: Jump within the same decoder/sink
+                                if sink.try_seek(Duration::from_secs_f64(offset)).is_ok() {
+                                    let _ = app_handle.emit("playback_progress_native", offset);
                                 }
                             }
                             AudioCommand::Pause => sink.pause(),
@@ -109,7 +102,10 @@ impl AudioPlayerState {
                                 sink.stop();
                                 current_offset_sec = -1.0;
                             }
-                            AudioCommand::SetVolume(v) => sink.set_volume(v),
+                            AudioCommand::SetVolume(v) => {
+                                global_volume = v;
+                                sink.set_volume(v);
+                            }
                         }
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
@@ -121,7 +117,7 @@ impl AudioPlayerState {
                                 }
                             } else {
                                 let pos = sink.get_pos();
-                                let total_pos = pos.as_secs_f64() + current_offset_sec;
+                                let total_pos = pos.as_secs_f64();
                                 let _ = app_handle.emit("playback_progress_native", total_pos);
                             }
                         }
@@ -133,52 +129,55 @@ impl AudioPlayerState {
 
         Self { 
             tx, 
-            request_count: AtomicU64::new(0) 
+            request_count: AtomicU64::new(0),
+            current_track_id: Mutex::new(None),
         }
     }
 }
 
+// ------ TAURI COMMANDS ------
+
 #[tauri::command]
 pub async fn audio_play_native(
     track_id: String,
-    start_percent: f64,
+    _start_percent: f64,
     start_sec: f64,
     player: State<'_, AudioPlayerState>,
     rusteer_state: State<'_, RusteerState>,
 ) -> Result<(), String> {
+    // 1. FAST PATH: If same track, just Seek
+    {
+        let mut current_id = player.current_track_id.lock().unwrap();
+        if Some(track_id.clone()) == *current_id {
+            let _ = player.tx.send(AudioCommand::Seek(start_sec));
+            return Ok(());
+        }
+        // If different track, update the ID
+        *current_id = Some(track_id.clone());
+    }
+
     let my_request_id = player.request_count.fetch_add(1, Ordering::SeqCst) + 1;
     let _ = player.tx.send(AudioCommand::Stop);
 
     let rc = rusteer_state.inner().0.lock().unwrap().clone();
     let rusteer = rc.ok_or("Rusteer not initialized".to_string())?;
 
-    let start_byte = if start_percent <= 0.001 {
-        0
-    } else {
-        (start_sec * 16_000.0) as u64
-    };
-
+    // We always stream from 0 because we now have a seekable RAM buffer
     let stream_res = rusteer
-        .stream_track(&track_id, start_byte, None)
+        .stream_track(&track_id, 0, None)
         .await
         .map_err(|e| e.to_string())?;
-
 
     let reader = SyncStreamReader {
         inner: stream_res.stream,
         runtime: tokio::runtime::Handle::current(),
     };
 
-    let final_reader = HeaderInjectReader {
-        inner: reader,
-        injected: start_byte == 0,
-    };
-
     if player.request_count.load(Ordering::SeqCst) == my_request_id {
-        let _ = player.tx.send(AudioCommand::Play(Box::new(final_reader), start_sec));
+        let _ = player.tx.send(AudioCommand::Play(Box::new(reader), start_sec, track_id));
         Ok(())
     } else {
-        Err("Request superseded by a newer one".to_string())
+        Err("Request superseded".to_string())
     }
 }
 
@@ -216,6 +215,8 @@ pub async fn audio_set_volume_native(
 
 #[tauri::command]
 pub async fn audio_stop_native(player: State<'_, AudioPlayerState>) -> Result<(), String> {
+    let mut current_id = player.current_track_id.lock().unwrap();
+    *current_id = None;
     let _ = player.tx.send(AudioCommand::Stop);
     Ok(())
 }
