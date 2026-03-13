@@ -25,10 +25,19 @@ const currentIndex = computed(() => store.currentLineIndex);
 const scrollToActiveLine = (index: number, smooth: boolean = true) => {
   if (index >= 0 && lyricsList.value) {
     const lines = lyricsList.value.querySelectorAll('.lyric-line');
-    if (lines[index]) {
-      lines[index].scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'center'
+    const activeLine = lines[index] as HTMLElement;
+    
+    if (activeLine) {
+      const containerHeight = lyricsList.value.clientHeight;
+      const lineOffset = activeLine.offsetTop;
+      const lineHeight = activeLine.clientHeight;
+      
+      // Center the line perfectly in the viewport
+      const scrollTo = lineOffset - (containerHeight / 2) + (lineHeight / 2);
+      
+      lyricsList.value.scrollTo({
+        top: scrollTo,
+        behavior: smooth ? 'smooth' : 'auto'
       });
     }
   }
@@ -171,17 +180,19 @@ const seekTo = (timeMs: number) => {
         </div>
 
         <!-- Lyrics List -->
-        <div v-else ref="lyricsList" class="w-full h-full overflow-y-auto scrollbar-hide py-[35vh]">
+        <div v-else ref="lyricsList" class="w-full h-full overflow-y-auto scrollbar-hide py-[40vh] px-4 space-y-2 select-none">
           <div v-for="(line, index) in lyrics" 
                :key="index"
-               class="lyric-line py-3 px-4 rounded-lg transition-all duration-300 cursor-pointer hover:bg-white/5 text-center"
+               class="lyric-line py-4 px-6 rounded-2xl transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] cursor-pointer hover:bg-white/5 text-center group/line"
                :class="{
-                 'text-white font-bold opacity-100': index === currentIndex,
-                 'text-white/35 font-medium': index !== currentIndex
+                 'text-white scale-110 opacity-100 blur-none font-bold py-6': index === currentIndex,
+                 'text-white/30 opacity-40 blur-[1px] font-semibold scale-95': index !== currentIndex,
+                 'translate-y-4': index > currentIndex,
+                 '-translate-y-4': index < currentIndex
                }"
                @click="seekTo(line.timeMs)">
-            <p class="text-xl md:text-2xl lg:text-3xl leading-relaxed transition-all duration-300"
-               :class="{ 'scale-105': index === currentIndex }">
+            <p class="text-2xl md:text-3xl lg:text-4xl leading-relaxed transition-all duration-700"
+               :class="{ 'drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]': index === currentIndex }">
               {{ line.text }}
             </p>
           </div>

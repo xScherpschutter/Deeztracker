@@ -18,6 +18,11 @@ const i18n = createI18n({
 const pinia = createPinia();
 const app = createApp(App);
 
+// Disable context menu in production for a native feel
+if (!import.meta.env.DEV) {
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
 app.use(pinia);
 app.use(router);
 app.use(i18n);
