@@ -9,6 +9,7 @@ import { formatDuration } from '../../search/utils/time';
 import { getImageUrl } from '../../search/utils/image';
 import { getRelativeTime } from '../../../utils/date';
 import LoadingSpinner from '../../search/components/LoadingSpinner.vue';
+import PlaylistCover from '../components/PlaylistCover.vue';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -26,6 +27,10 @@ const sortBy = ref<'added_at' | 'title' | 'artist' | 'duration'>('added_at');
 const sortOrder = ref<'asc' | 'desc'>('desc');
 
 const playlist = computed(() => libraryStore.playlists.find(p => p.id === playlistId));
+
+const previewCovers = computed(() => {
+  return tracks.value.slice(0, 4).map(t => getImageUrl(t.album.images));
+});
 
 const filteredTracks = computed(() => {
   let items = [...tracks.value];
@@ -106,9 +111,7 @@ const removeFromPlaylist = async (trackId: string) => {
     <div v-else-if="playlist" class="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
       <!-- Hero Header -->
       <div class="relative h-80 flex items-end p-8 gap-8 overflow-hidden bg-surface/30 flex-shrink-0">
-        <div class="w-52 h-52 shadow-2xl rounded-lg z-10 relative bg-white/5 flex items-center justify-center flex-shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
-        </div>
+        <PlaylistCover :covers="previewCovers" size="xl" class="w-52 h-52 shadow-2xl rounded-lg z-10" />
         
         <div class="flex-1 z-10 relative mb-2">
           <span class="text-xs font-bold uppercase tracking-widest text-primary mb-2 block">Playlist</span>

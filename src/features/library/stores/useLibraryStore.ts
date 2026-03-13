@@ -8,6 +8,7 @@ export interface LocalPlaylist {
   name: string;
   description: string | null;
   created_at: string;
+  preview_covers: string[];
 }
 
 export const useLibraryStore = defineStore('library', () => {
@@ -78,6 +79,7 @@ export const useLibraryStore = defineStore('library', () => {
   async function addTrackToPlaylist(playlistId: number, track: Track) {
     try {
       await invoke('add_track_to_playlist', { playlistId, track });
+      await loadPlaylists(); // Refresh preview_covers
     } catch (e) {
       console.error('Failed to add track to playlist', e);
     }
@@ -86,6 +88,7 @@ export const useLibraryStore = defineStore('library', () => {
   async function removeTrackFromPlaylist(playlistId: number, trackId: string) {
     try {
       await invoke('remove_track_from_playlist', { playlistId, trackId });
+      await loadPlaylists(); // Refresh preview_covers
     } catch (e) {
       console.error('Failed to remove track from playlist', e);
     }

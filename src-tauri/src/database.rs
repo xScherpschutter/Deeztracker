@@ -132,22 +132,54 @@ pub async fn delete_playlist(id: i64, state: tauri::State<'_, DbState>) -> Resul
 #[tauri::command]
 pub async fn get_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<serde_json::Value>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
+    
+    // 1. Fetch all playlists
     let mut stmt = conn.prepare("SELECT id, name, description, created_at FROM playlists ORDER BY created_at DESC")
         .map_err(|e| e.to_string())?;
     
-    let rows = stmt.query_map([], |row| {
-        Ok(serde_json::json!({
-            "id": row.get::<_, i64>(0)?,
-            "name": row.get::<_, String>(1)?,
-            "description": row.get::<_, Option<String>>(2)?,
-            "created_at": row.get::<_, String>(3)?
-        }))
+    let playlist_rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+            row.get::<_, String>(3)?
+        ))
     }).map_err(|e| e.to_string())?;
 
     let mut playlists = Vec::new();
-    for row in rows {
-        playlists.push(row.map_err(|e| e.to_string())?);
+    
+    // 2. For each playlist, get the first 4 track covers
+    for row_res in playlist_rows {
+        let (id, name, description, created_at) = row_res.map_err(|e| e.to_string())?;
+        
+        let mut track_stmt = conn.prepare("SELECT metadata FROM playlist_tracks WHERE playlist_id = ? ORDER BY added_at ASC LIMIT 4")
+            .map_err(|e| e.to_string())?;
+        
+        let track_rows = track_stmt.query_map(params![id], |track_row| {
+            Ok(track_row.get::<_, String>(0)?)
+        }).map_err(|e| e.to_string())?;
+        
+        let mut preview_covers = Vec::new();
+        for track_metadata_res in track_rows {
+            let metadata_str = track_metadata_res.map_err(|e| e.to_string())?;
+            if let Ok(track_val) = serde_json::from_str::<serde_json::Value>(&metadata_str) {
+                if let Some(images) = track_val.get("album").and_then(|a| a.get("images")).and_then(|i| i.as_array()) {
+                    if let Some(first_image) = images.first().and_then(|img| img.get("url")).and_then(|u| u.as_str()) {
+                        preview_covers.push(first_image.to_string());
+                    }
+                }
+            }
+        }
+
+        playlists.push(serde_json::json!({
+            "id": id,
+            "name": name,
+            "description": description,
+            "created_at": created_at,
+            "preview_covers": preview_covers
+        }));
     }
+    
     Ok(playlists)
 }
 

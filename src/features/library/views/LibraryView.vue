@@ -9,6 +9,7 @@ import { getImageUrl } from '../../search/utils/image';
 import { getRelativeTime } from '../../../utils/date';
 import type { Track } from '../../search/models/search';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
+import PlaylistCover from '../components/PlaylistCover.vue';
 
 const libraryStore = useLibraryStore();
 const playbackStore = usePlaybackStore();
@@ -330,9 +331,7 @@ const cancelDeletePlaylist = () => {
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             </button>
-            <div class="aspect-square mb-4 shadow-2xl bg-white/5 rounded-lg flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
-            </div>
+            <PlaylistCover :covers="playlist.preview_covers" class="mb-4 shadow-2xl" />
             <h3 class="font-bold text-sm truncate mb-1">{{ playlist.name }}</h3>
             <p v-if="playlist.description" class="text-xs text-textGray truncate">{{ playlist.description }}</p>
           </div>

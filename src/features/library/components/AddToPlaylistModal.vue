@@ -2,6 +2,7 @@
 import { useLibraryStore } from '../stores/useLibraryStore';
 import { useI18n } from 'vue-i18n';
 import type { Track } from '../../search/models/search';
+import PlaylistCover from './PlaylistCover.vue';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -60,9 +61,7 @@ const addToPlaylist = async (playlistId: number) => {
             @click="addToPlaylist(playlist.id)"
             class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left"
           >
-            <div class="w-10 h-10 bg-white/10 rounded flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            </div>
+            <PlaylistCover :covers="playlist.preview_covers" class="w-10 h-10 flex-shrink-0" />
             <div class="min-w-0">
               <p class="text-sm font-medium truncate">{{ playlist.name }}</p>
             </div>
