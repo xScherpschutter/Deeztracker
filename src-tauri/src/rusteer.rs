@@ -143,22 +143,12 @@ pub struct Rusteer {
     embed_tags: bool,
     /// Default output directory for downloads.
     output_dir: PathBuf,
-    /// Cache for seeking in the same track.
-    stream_cache: Arc<Mutex<Option<StreamCache>>>,
+    /// LRU Cache for seeking (max 5 items).
+    stream_cache: Arc<Mutex<Vec<StreamCache>>>,
 }
 
 impl Rusteer {
     /// Create a new Rusteer instance.
-    ///
-    /// Requires a valid ARL token from a logged-in Deezer session.
-    ///
-    /// # Arguments
-    ///
-    /// * `arl` - ARL authentication token
-    ///
-    /// # Errors
-    ///
-    /// Returns `BadCredentials` if the ARL token is invalid.
     pub async fn new(arl: &str) -> Result<Self> {
         let gateway_api = GatewayApi::new(arl).await?;
         let public_api = DeezerApi::new();
@@ -169,13 +159,11 @@ impl Rusteer {
             preferred_quality: DownloadQuality::default(),
             embed_tags: true,
             output_dir: PathBuf::from("downloads"),
-            stream_cache: Arc::new(Mutex::new(None)),
+            stream_cache: Arc::new(Mutex::new(Vec::with_capacity(5))),
         })
     }
 
     /// Set the preferred download quality.
-    ///
-    /// If the preferred quality is not available, will fall back to lower qualities.
     pub fn set_quality(&mut self, quality: DownloadQuality) {
         self.preferred_quality = quality;
     }
@@ -186,12 +174,6 @@ impl Rusteer {
     }
 
     /// Enable or disable embedding metadata tags in downloaded files.
-    ///
-    /// When enabled (default), downloaded files will include:
-    /// - Title, Artist, Album
-    /// - Track/Disc numbers
-    /// - Cover art
-    /// - Genre, Year, ISRC
     pub fn set_embed_tags(&mut self, embed: bool) {
         self.embed_tags = embed;
     }
@@ -202,8 +184,6 @@ impl Rusteer {
     }
 
     /// Set the output directory for downloads.
-    ///
-    /// Default is "downloads" in the current working directory.
     pub fn set_output_dir<P: AsRef<Path>>(&mut self, path: P) {
         self.output_dir = path.as_ref().to_path_buf();
     }
@@ -211,6 +191,41 @@ impl Rusteer {
     /// Get the current output directory.
     pub fn output_dir(&self) -> &Path {
         &self.output_dir
+    }
+
+    /// Pre-fetches metadata for a track and stores it in the LRU cache.
+    pub async fn preload_track(&self, track_id: &str) -> Result<()> {
+        // If already in cache, move to front
+        {
+            let mut cache = self.stream_cache.lock().unwrap();
+            if let Some(pos) = cache.iter().position(|c| c.track_id == track_id) {
+                let item = cache.remove(pos);
+                cache.push(item);
+                return Ok(());
+            }
+        }
+
+        // Fetch and cache
+        let track = self.public_api.get_track(track_id).await?;
+        let artist = track.artists_string(", ");
+        let title = track.title.clone();
+        let song_data = self.gateway_api.get_song_data(track_id).await?;
+
+        if !song_data.readable { return Ok(()); }
+
+        let track_token = song_data.track_token.ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
+        let (media_url, quality) = self.find_media_url(&track_token).await?;
+
+        let mut cache = self.stream_cache.lock().unwrap();
+        if cache.len() >= 5 { cache.remove(0); }
+        cache.push(StreamCache {
+            track_id: track_id.to_string(),
+            media_url: media_url.url,
+            title,
+            artist,
+            quality,
+        });
+        Ok(())
     }
 
     /// Check if the account has premium access.
@@ -270,14 +285,7 @@ impl Rusteer {
     }
 
     /// Get tracks related to a track (radio mix).
-    /// This implementation finds related artists and mixes their top tracks
-    /// to provide a high-quality discovery experience with different artists.
     pub async fn get_track_radio(&self, track_id: &str) -> Result<Vec<Track>> {
-        println!(
-            "DEBUG: Generating smart discovery mix for track {}",
-            track_id
-        );
-
         // 1. Get current track metadata to find the artist
         let track = self.get_track(track_id).await?;
         let primary_artist = match track.artists.first() {
@@ -298,19 +306,14 @@ impl Rusteer {
             .unwrap_or_default();
 
         if related_artists.is_empty() {
-            println!(
-                "DEBUG: No related artists found, falling back to top tracks of primary artist"
-            );
             return self.get_artist_top_tracks(primary_artist_id, 25).await;
         }
 
         // 3. Get top tracks from the first 5 related artists
         let mut mix_tracks = Vec::new();
-        // Limit to 5 related artists to avoid massive API calls
         for related in related_artists.iter().take(5) {
             if let Some(rid) = &related.ids.deezer {
                 if let Ok(tops) = self.get_artist_top_tracks(rid, 10).await {
-                    // Take top 3-4 tracks from each related artist
                     mix_tracks.extend(tops.into_iter().take(10));
                 }
             }
@@ -320,11 +323,6 @@ impl Rusteer {
         use rand::seq::SliceRandom;
         let mut rng = rand::thread_rng();
         mix_tracks.shuffle(&mut rng);
-
-        println!(
-            "DEBUG: Smart mix generated with {} tracks from related artists",
-            mix_tracks.len()
-        );
 
         Ok(mix_tracks)
     }
@@ -344,27 +342,28 @@ impl Rusteer {
     // ==================
 
     /// Download a single track to the default output directory.
-    ///
-    /// Uses the configured output_dir (default: "downloads").
     pub async fn download_track(&self, track_id: &str) -> Result<DownloadResult> {
         self.download_track_to(track_id, &self.output_dir.clone())
             .await
     }
 
     /// Stream a track's audio bytes over a Tokio AsyncRead stream.
-    ///
-    /// The decryption happens on-the-fly, allowing immediate playback.
-    /// This bypasses embedding metadata tags on the file.
     pub async fn stream_track(
         &self,
         track_id: &str,
         start_byte: u64,
         end_byte: Option<u64>,
     ) -> Result<StreamingResult> {
-        // Check cache for faster seeking
+        // Check LRU cache
         let cached = {
-            let cache = self.stream_cache.lock().unwrap();
-            cache.as_ref().filter(|c| c.track_id == track_id).cloned()
+            let mut cache = self.stream_cache.lock().unwrap();
+            if let Some(pos) = cache.iter().position(|c| c.track_id == track_id && c.quality == self.preferred_quality) {
+                let item = cache.remove(pos);
+                cache.push(item.clone()); // Move to front (MRU)
+                Some(item)
+            } else {
+                None
+            }
         };
 
         let (media_url_str, quality, title, artist) = if let Some(c) = cached {
@@ -394,7 +393,10 @@ impl Rusteer {
 
             // Update cache
             let mut cache = self.stream_cache.lock().unwrap();
-            *cache = Some(StreamCache {
+            if cache.len() >= 5 {
+                cache.remove(0); // Remove LRU
+            }
+            cache.push(StreamCache {
                 track_id: track_id.to_string(),
                 media_url: media_url.url.clone(),
                 title: title.clone(),
@@ -528,31 +530,18 @@ impl Rusteer {
     }
 
     /// Download an entire album to the default output directory.
-    ///
-    /// Uses the configured output_dir (default: "downloads").
     pub async fn download_album(&self, album_id: &str) -> Result<BatchDownloadResult> {
         self.download_album_to(album_id, &self.output_dir.clone())
             .await
     }
 
     /// Download an entire playlist to the default output directory.
-    ///
-    /// Uses the configured output_dir (default: "downloads").
     pub async fn download_playlist(&self, playlist_id: &str) -> Result<BatchDownloadResult> {
         self.download_playlist_to(playlist_id, &self.output_dir.clone())
             .await
     }
 
     /// Download a single track to a specific directory.
-    ///
-    /// # Arguments
-    ///
-    /// * `track_id` - Deezer track ID
-    /// * `output_dir` - Directory to save the file
-    ///
-    /// # Returns
-    ///
-    /// Information about the downloaded file.
     pub async fn download_track_to<P: AsRef<Path>>(
         &self,
         track_id: &str,
@@ -599,7 +588,6 @@ impl Rusteer {
 
         // Embed metadata tags
         if self.embed_tags {
-            // Fetch cover art
             let cover_art = if !track.album.images.is_empty() {
                 tagging::fetch_cover_art(&track.album.images[0].url).await
             } else {
@@ -615,21 +603,18 @@ impl Rusteer {
                 .with_disc(track.disc_number, Some(track.album.total_discs))
                 .with_year(track.album.release_date.year);
 
-            // Add ISRC if available
             let metadata = if let Some(isrc) = &track.ids.isrc {
                 metadata.with_isrc(isrc)
             } else {
                 metadata
             };
 
-            // Add genre if available
             let metadata = if !track.album.genres.is_empty() {
                 metadata.with_genre(track.album.genres.join(", "))
             } else {
                 metadata
             };
 
-            // Add cover art if fetched
             let metadata = if let Some(cover) = cover_art {
                 metadata.with_cover_art(cover)
             } else {
@@ -651,13 +636,6 @@ impl Rusteer {
     }
 
     /// Download an entire album to a specific directory.
-    ///
-    /// Creates a directory with the album name and downloads all tracks.
-    ///
-    /// # Arguments
-    ///
-    /// * `album_id` - Deezer album ID
-    /// * `output_dir` - Base directory (album folder will be created inside)
     pub async fn download_album_to<P: AsRef<Path>>(
         &self,
         album_id: &str,
@@ -709,13 +687,6 @@ impl Rusteer {
     }
 
     /// Download an entire playlist to a specific directory.
-    ///
-    /// Creates a directory with the playlist name and downloads all tracks.
-    ///
-    /// # Arguments
-    ///
-    /// * `playlist_id` - Deezer playlist ID
-    /// * `output_dir` - Base directory (playlist folder will be created inside)
     pub async fn download_playlist_to<P: AsRef<Path>>(
         &self,
         playlist_id: &str,
@@ -777,7 +748,6 @@ impl Rusteer {
         &self,
         track_token: &str,
     ) -> Result<(crate::api::gateway::MediaUrl, DownloadQuality)> {
-        // Build quality order starting from preferred
         let qualities = match self.preferred_quality {
             DownloadQuality::Flac => vec![
                 DownloadQuality::Flac,
@@ -840,11 +810,8 @@ impl Rusteer {
 
         crypto::decrypt_track(&encrypted_bytes, track_id, &output_path)?;
 
-        // Embed metadata tags
         if self.embed_tags {
-            // Fetch full track info for metadata
             if let Ok(track) = self.public_api.get_track(track_id).await {
-                // Fetch cover art
                 let cover_art = if !track.album.images.is_empty() {
                     tagging::fetch_cover_art(&track.album.images[0].url).await
                 } else {
@@ -862,28 +829,24 @@ impl Rusteer {
                     .with_disc(track.disc_number, Some(track.album.total_discs))
                     .with_year(track.album.release_date.year);
 
-                // Add ISRC if available
                 let metadata = if let Some(isrc) = &track.ids.isrc {
                     metadata.with_isrc(isrc)
                 } else {
                     metadata
                 };
 
-                // Add genre if available
                 let metadata = if !track.album.genres.is_empty() {
                     metadata.with_genre(track.album.genres.join(", "))
                 } else {
                     metadata
                 };
 
-                // Add cover art if fetched
                 let metadata = if let Some(cover) = cover_art {
                     metadata.with_cover_art(cover)
                 } else {
                     metadata
                 };
 
-                // Ignore tagging errors
                 let _ = tagging::write_metadata(&output_path, &metadata);
             }
         }
@@ -895,7 +858,7 @@ impl Rusteer {
             quality,
             size,
             title: title.to_string(),
-            artist: String::new(), // We could fill this if we fetched the track
+            artist: String::new(),
         })
     }
 
@@ -937,11 +900,8 @@ impl Rusteer {
 
         crypto::decrypt_track(&encrypted_bytes, track_id, &output_path)?;
 
-        // Embed metadata tags
         if self.embed_tags {
-            // Fetch full track info for metadata
             if let Ok(track) = self.public_api.get_track(track_id).await {
-                // Fetch cover art
                 let cover_art = if !track.album.images.is_empty() {
                     tagging::fetch_cover_art(&track.album.images[0].url).await
                 } else {
@@ -959,28 +919,24 @@ impl Rusteer {
                     .with_disc(track.disc_number, Some(track.album.total_discs))
                     .with_year(track.album.release_date.year);
 
-                // Add ISRC if available
                 let metadata = if let Some(isrc) = &track.ids.isrc {
                     metadata.with_isrc(isrc)
                 } else {
                     metadata
                 };
 
-                // Add genre if available
                 let metadata = if !track.album.genres.is_empty() {
                     metadata.with_genre(track.album.genres.join(", "))
                 } else {
                     metadata
                 };
 
-                // Add cover art if fetched
                 let metadata = if let Some(cover) = cover_art {
                     metadata.with_cover_art(cover)
                 } else {
                     metadata
                 };
 
-                // Ignore tagging errors
                 let _ = tagging::write_metadata(&output_path, &metadata);
             }
         }

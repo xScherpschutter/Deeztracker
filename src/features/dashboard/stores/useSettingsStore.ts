@@ -28,7 +28,7 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       await invoke('set_audio_quality', { quality: audioQuality.value });
     } catch (e) {
-      console.warn('Initial audio quality sync failed', e);
+
     }
   };
 

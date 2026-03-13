@@ -150,6 +150,7 @@ export const usePlaybackStore = defineStore('playback', {
     triggerPreload() {
       const nextTrack = this.nextTrackInQueue;
       if (nextTrack) {
+
         PlaybackService.getInstance().preload(nextTrack);
       }
     },
@@ -299,22 +300,15 @@ export const usePlaybackStore = defineStore('playback', {
     },
 
     async fetchRadio(trackId: string) {
-      console.log('Fetching radio for track:', trackId);
       try {
         const relatedTracks = await SearchService.getTrackRadio(trackId);
-        console.log('Received related tracks:', relatedTracks.length);
-
-        // Filter out tracks already in queue
         const newTracks = relatedTracks.filter(rt => !this.queue.some(q => q.ids.deezer === rt.ids.deezer));
         this.queue.push(...newTracks);
-        console.log('New queue length:', this.queue.length);
-
         if (this.isShuffle) {
           this.generateShuffledIndices();
         }
       } catch (e) {
-        // Silent error: Radio endpoint might be restricted or non-existent
-        console.warn('Radio fetch failed, skipping auto-queue', e);
+        // Silent error
       }
     },
 

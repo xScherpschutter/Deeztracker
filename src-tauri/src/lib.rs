@@ -25,12 +25,6 @@ use tauri_plugin_autostart::ManagerExt;
 // Shared State to hold Rusteer instance
 pub struct RusteerState(pub Arc<std::sync::Mutex<Option<Rusteer>>>);
 
-// Streaming Server State
-pub struct StreamServerState {
-    pub base_url: String,
-}
-
-
 #[tauri::command]
 async fn login(arl: String, state: tauri::State<'_, RusteerState>) -> Result<bool, String> {
     let instance = Rusteer::new(&arl)
@@ -80,7 +74,6 @@ async fn get_audio_quality(state: tauri::State<'_, RusteerState>) -> Result<Stri
     Ok(rusteer.quality().format().to_string())
 }
 
-// Media Controls State
 pub struct MediaState {
     pub controls: Arc<std::sync::Mutex<MediaControls>>,
 }
@@ -268,11 +261,9 @@ async fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), Strin
 #[tauri::command]
 async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json::Value, String> {
     let _ = get_rusteer(&state)?;
-    // We reuse the public API client inside Rusteer
     let api = DeezerApi::new();
     let charts = api.get_charts().await.map_err(|e| e.to_string())?;
 
-    // Process the charts to convert them to our structured models
     let mut processed_charts = serde_json::json!({
         "tracks": [],
         "albums": [],
@@ -436,7 +427,6 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Initialize native Audio Player instance
             let audio_player = audio_player::AudioPlayerState::new(app.handle().clone());
             app.manage(audio_player);
 
@@ -474,6 +464,7 @@ pub fn run() {
             database::remove_track_from_playlist,
             database::get_playlist_tracks,
             audio_player::audio_play_native,
+            audio_player::audio_preload_native,
             audio_player::audio_pause_native,
             audio_player::audio_resume_native,
             audio_player::audio_stop_native,

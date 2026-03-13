@@ -44,8 +44,13 @@ export class PlaybackService {
     });
   }
 
-  async preload(_track: Track) {
-    // Gapless pre-fetching is bypassed in the native framework to prioritize uncorrupted buffers.
+  async preload(track: Track) {
+    if (!track.ids.deezer) return;
+    try {
+      await invoke('audio_preload_native', { trackId: track.ids.deezer });
+    } catch (e) {
+      console.error('Preload error:', e);
+    }
   }
 
   async play(
@@ -81,13 +86,11 @@ export class PlaybackService {
 
     this._currentTrackId = track.ids.deezer || null;
     let trackDuration = track.duration_ms;
-    // In some Deezer endpoints, it might come as 'duration' instead of 'duration_ms', or in seconds instead of ms
     if (!trackDuration || trackDuration < 1000) {
-      // @ts-ignore
-      trackDuration = track.duration ? track.duration * 1000 : 200000;
+      trackDuration = track.duration_ms ? track.duration_ms : 200000;
     }
     this.currentDuration = trackDuration / 1000.0;
-    console.log("PLAY: Setting current track duration to", this.currentDuration, "seconds");
+
 
     try {
       if (track.ids.deezer) {
@@ -153,7 +156,7 @@ export class PlaybackService {
       const safeSec = isNaN(seconds) ? 0.0 : Number(seconds);
       const safePercent = isNaN(percent) ? 0.0 : Number(percent);
 
-      console.log(`SEEK: Navigating to ${safeSec}s (Percent: ${safePercent}) over duration: ${durationToUse}`);
+
 
       await invoke('audio_play_native', {
         trackId: this._currentTrackId,

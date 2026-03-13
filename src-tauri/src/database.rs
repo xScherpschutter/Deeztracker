@@ -7,13 +7,10 @@ use serde_json;
 pub struct DbState(pub std::sync::Mutex<Connection>);
 
 pub fn init(app_data_dir: PathBuf) -> Result<Connection, String> {
-    // Ensure the data directory exists
     fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
     
     let db_path = app_data_dir.join("library.db");
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
-
-    // Create tables
     conn.execute(
         "CREATE TABLE IF NOT EXISTS favorites (
             track_id TEXT PRIMARY KEY,
@@ -48,13 +45,11 @@ pub fn init(app_data_dir: PathBuf) -> Result<Connection, String> {
     Ok(conn)
 }
 
-// Favorites Commands
 #[tauri::command]
 pub async fn toggle_favorite(track: Track, state: tauri::State<'_, DbState>) -> Result<Option<Track>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let track_id = track.ids.deezer.clone().ok_or("No track ID")?;
     
-    // Check if exists
     let exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM favorites WHERE track_id = ?)",
         params![track_id],
@@ -72,7 +67,6 @@ pub async fn toggle_favorite(track: Track, state: tauri::State<'_, DbState>) -> 
             params![track_id, metadata],
         ).map_err(|e| e.to_string())?;
         
-        // Fetch the added_at timestamp
         let added_at: String = conn.query_row(
             "SELECT added_at FROM favorites WHERE track_id = ?",
             params![track_id],
@@ -117,7 +111,6 @@ pub async fn is_favorite(track_id: String, state: tauri::State<'_, DbState>) -> 
     Ok(exists)
 }
 
-// Playlist Commands
 #[tauri::command]
 pub async fn create_playlist(name: String, description: Option<String>, state: tauri::State<'_, DbState>) -> Result<i64, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;

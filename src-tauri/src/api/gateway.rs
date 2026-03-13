@@ -53,7 +53,7 @@ const CLIENT_SECRET: &str = "fb0bec7ccc063dab0417eb7b0d847f34";
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let gw = GatewayApi::new("your_arl_token_here").await?;
 ///     let song_data = gw.get_song_data("3135556").await?;
-///     println!("Song: {:?}", song_data);
+///     
 ///     Ok(())
 /// }
 /// ```
