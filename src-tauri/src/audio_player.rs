@@ -100,9 +100,13 @@ impl AudioPlayerState {
                                 }
                             }
                             AudioCommand::Seek(offset) => {
+                                let old_vol = sink.volume();
+                                sink.set_volume(0.0);
                                 if sink.try_seek(Duration::from_secs_f64(offset)).is_ok() {
                                     let _ = app_handle.emit("playback_progress_native", offset);
                                 }
+                                thread::sleep(Duration::from_millis(10));
+                                sink.set_volume(old_vol);
                             }
                             AudioCommand::Pause => {
                                 sink.pause();

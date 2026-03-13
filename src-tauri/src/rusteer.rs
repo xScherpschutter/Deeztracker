@@ -196,6 +196,7 @@ impl Rusteer {
                 let key = crypto::calc_blowfish_key(&track_id_cloned);
                 let mut chunk_buffer = Vec::new();
                 let mut block_index = 0;
+                let mut batch_buffer = Vec::with_capacity(16384);
 
                 while let Some(chunk_res) = byte_stream.next().await {
                     if let Ok(bytes) = chunk_res {
@@ -203,14 +204,24 @@ impl Rusteer {
                         while chunk_buffer.len() >= 2048 {
                             let block: Vec<u8> = chunk_buffer.drain(..2048).collect();
                             let processed = if block_index % 3 == 0 { crypto::decrypt_blowfish_chunk(&block, &key) } else { block };
-                            {
-                                let mut data = buffer_clone.data.lock().unwrap();
-                                data.extend_from_slice(&processed);
-                            }
-                            buffer_clone.notify.notify_waiters();
+                            
+                            batch_buffer.extend_from_slice(&processed);
                             block_index += 1;
+
+                            if batch_buffer.len() >= 16384 {
+                                {
+                                    let mut data = buffer_clone.data.lock().unwrap();
+                                    data.extend_from_slice(&batch_buffer);
+                                }
+                                buffer_clone.notify.notify_waiters();
+                                batch_buffer.clear();
+                            }
                         }
                     } else { break; }
+                }
+                if !batch_buffer.is_empty() {
+                    let mut data = buffer_clone.data.lock().unwrap();
+                    data.extend_from_slice(&batch_buffer);
                 }
                 if !chunk_buffer.is_empty() {
                     let mut data = buffer_clone.data.lock().unwrap();
