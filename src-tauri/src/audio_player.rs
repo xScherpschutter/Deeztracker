@@ -78,7 +78,7 @@ impl AudioPlayerState {
             let mut global_volume = 1.0f32;
 
             loop {
-                match rx.recv_timeout(Duration::from_millis(50)) {
+                match rx.recv_timeout(Duration::from_millis(200)) {
                     Ok(cmd) => {
                         match cmd {
                             AudioCommand::Play(reader, offset, _id) => {
