@@ -33,7 +33,6 @@ export const useSearchStore = defineStore('search', () => {
       return;
     }
 
-    // Limpiamos resultados previos inmediatamente para evitar "flashes" de datos viejos
     clearResults();
     
     isLoading.value = true;
@@ -129,8 +128,17 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   let debounceTimeout: number | undefined;
-  watch([query, activeType], () => {
+  watch([query, activeType], ([newQuery]) => {
     clearTimeout(debounceTimeout);
+    
+    if (!newQuery.trim()) {
+      clearResults();
+      isLoading.value = false;
+      return;
+    }
+
+    isLoading.value = true;
+
     debounceTimeout = window.setTimeout(() => {
       performSearch();
     }, 400);

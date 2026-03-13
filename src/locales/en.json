@@ -51,6 +51,7 @@
     "delete_playlist_confirm": "Are you sure you want to delete this playlist?",
     "delete_playlist_btn": "Delete",
     "playlist_created": "Playlist created successfully",
+    "sort_by": "Sort by",
     "added_to_playlist": "Added to {name}",
     "removed_from_playlist": "Removed from {name}",
     "added_at": "Added",
