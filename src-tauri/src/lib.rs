@@ -265,6 +265,36 @@ async fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), Strin
 }
 
 #[tauri::command]
+async fn update_tray_menu(
+    app: tauri::AppHandle,
+    toggle: String,
+    next: String,
+    prev: String,
+    show: String,
+    quit: String,
+) -> Result<(), String> {
+    let toggle_i = MenuItem::with_id(&app, "toggle", toggle, true, None::<&str>).map_err(|e| e.to_string())?;
+    let next_i = MenuItem::with_id(&app, "next", next, true, None::<&str>).map_err(|e| e.to_string())?;
+    let prev_i = MenuItem::with_id(&app, "prev", prev, true, None::<&str>).map_err(|e| e.to_string())?;
+    let show_i = MenuItem::with_id(&app, "show", show, true, None::<&str>).map_err(|e| e.to_string())?;
+    let quit_i = MenuItem::with_id(&app, "quit", quit, true, None::<&str>).map_err(|e| e.to_string())?;
+    
+    let menu = Menu::with_items(&app, &[
+        &toggle_i, 
+        &next_i, 
+        &prev_i, 
+        &tauri::menu::PredefinedMenuItem::separator(&app).map_err(|e| e.to_string())?,
+        &show_i, 
+        &quit_i
+    ]).map_err(|e| e.to_string())?;
+
+    if let Some(tray) = app.tray_by_id("main_tray") {
+        let _ = tray.set_menu(Some(menu));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json::Value, String> {
     let _ = get_rusteer(&state)?;
     let api = DeezerApi::new();
@@ -405,23 +435,41 @@ pub fn run() {
             let conn = database::init(app_data_dir).expect("Failed to initialize database");
             app.manage(database::DbState(std::sync::Mutex::new(conn)));
 
-            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
-            let _tray = TrayIconBuilder::new()
+            // Tray Menu Items
+            let toggle_i = MenuItem::with_id(app, "toggle", "Play / Pausa", true, None::<&str>)?;
+            let next_i = MenuItem::with_id(app, "next", "Siguiente", true, None::<&str>)?;
+            let prev_i = MenuItem::with_id(app, "prev", "Anterior", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Mostrar ventana", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
+            
+            let menu = Menu::with_items(app, &[
+                &toggle_i, 
+                &next_i, 
+                &prev_i, 
+                &tauri::menu::PredefinedMenuItem::separator(app)?,
+                &show_i, 
+                &quit_i
+            ])?;
+
+            let _tray = TrayIconBuilder::with_id("main_tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Deeztracker")
-                .title("Deeztracker")
                 .menu(&menu)
                 .on_menu_event(|app, event| {
-                    if event.id.as_ref() == "quit" {
-                        app.exit(0);
-                    } else if event.id.as_ref() == "show" {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
+                    use tauri::Emitter;
+                    match event.id.as_ref() {
+                        "quit" => { app.exit(0); }
+                        "show" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
                         }
+                        "toggle" => { let _ = app.emit("media-toggle", ()); }
+                        "next" => { let _ = app.emit("media-next", ()); }
+                        "prev" => { let _ = app.emit("media-prev", ()); }
+                        _ => {}
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -465,6 +513,7 @@ pub fn run() {
             get_track_radio,
             update_media_metadata,
             update_playback_state,
+            update_tray_menu,
             get_charts,
             get_autostart,
             set_autostart,

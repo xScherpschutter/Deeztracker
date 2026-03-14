@@ -38,8 +38,15 @@ export class PlaybackService {
       if (now - this.lastProgressUpdate < 150) return;
       this.lastProgressUpdate = now;
 
+      const progress = event.payload;
       if (this.onProgressCallback && this.currentDuration > 0) {
-        this.onProgressCallback(event.payload, this.currentDuration);
+        this.onProgressCallback(progress, this.currentDuration);
+      }
+
+      // Periodically sync progress with the OS (MPRIS/SMTC)
+      // Every ~1 second to not flood the bridge
+      if (Math.floor(progress) % 2 === 0 && Math.abs(progress - Math.floor(progress)) < 0.2) {
+        this.updatePlaybackState(true, progress);
       }
     });
 

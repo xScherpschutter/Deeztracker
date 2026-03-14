@@ -101,6 +101,13 @@
     "close": "Cerrar",
     "settings": "Configuración"
   },
+  "tray": {
+    "toggle": "Play / Pausa",
+    "next": "Siguiente",
+    "prev": "Anterior",
+    "show": "Mostrar ventana",
+    "quit": "Salir"
+  },
   "settings": {
     "title": "Configuración",
     "audio": {

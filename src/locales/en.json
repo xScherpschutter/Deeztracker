@@ -100,6 +100,13 @@
     "close": "Close",
     "settings": "Settings"
   },
+  "tray": {
+    "toggle": "Play / Pause",
+    "next": "Next",
+    "prev": "Previous",
+    "show": "Show Window",
+    "quit": "Quit"
+  },
   "settings": {
     "title": "Settings",
     "audio": {
