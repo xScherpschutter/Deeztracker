@@ -68,6 +68,14 @@
   "dashboard": {
     "welcome": "Welcome back"
   },
+  "playback": {
+    "queue_title": "Play Queue",
+    "clear_queue": "Clear",
+    "history": "Previously played",
+    "now_playing": "Now playing",
+    "next_up": "Next up",
+    "empty_queue": "No more songs in queue"
+  },
   "player": {
     "lyrics": "Lyrics",
     "no_lyrics": "Lyrics not available",

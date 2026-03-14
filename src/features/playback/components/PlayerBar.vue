@@ -170,6 +170,15 @@ const openPlaylistModal = () => {
 
     <!-- Volume & Others -->
     <div class="w-1/3 flex justify-end items-center gap-4">
+      <button 
+        @click="playbackStore.toggleQueue"
+        class="transition-colors"
+        :class="playbackStore.showQueue ? 'text-primary' : 'text-textGray hover:text-white'"
+        title="Cola de reproducción"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/></svg>
+      </button>
+
       <div class="flex items-center gap-2 w-32 group/vol">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-textGray"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
         <input 

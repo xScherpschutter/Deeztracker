@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlayerBar from '../features/playback/components/PlayerBar.vue';
+import QueueDrawer from '../features/playback/components/QueueDrawer.vue';
 </script>
 
 <template>
@@ -11,6 +12,9 @@ import PlayerBar from '../features/playback/components/PlayerBar.vue';
           <component :is="Component" />
         </transition>
       </router-view>
+      
+      <!-- Queue Drawer -->
+      <QueueDrawer />
     </main>
 
     <!-- Player Bar -->

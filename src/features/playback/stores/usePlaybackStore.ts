@@ -20,6 +20,7 @@ export const usePlaybackStore = defineStore('playback', {
     shuffledIndices: [] as number[],
     lyrics: [] as LrcLine[],
     isLoadingLyrics: false,
+    showQueue: false,
     _listenersInitialized: false,
   }),
 
@@ -339,6 +340,10 @@ export const usePlaybackStore = defineStore('playback', {
       const modes: ('off' | 'all' | 'one')[] = ['off', 'all', 'one'];
       const nextIndex = (modes.indexOf(this.repeatMode) + 1) % modes.length;
       this.repeatMode = modes[nextIndex];
+    },
+
+    toggleQueue() {
+      this.showQueue = !this.showQueue;
     },
 
     resetProgress() {

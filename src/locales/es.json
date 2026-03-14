@@ -68,6 +68,14 @@
   "dashboard": {
     "welcome": "Bienvenido de nuevo"
   },
+  "playback": {
+    "queue_title": "Cola de reproducción",
+    "clear_queue": "Limpiar",
+    "history": "Escuchado anteriormente",
+    "now_playing": "Ahora suena",
+    "next_up": "Siguiente",
+    "empty_queue": "No hay más canciones en la cola"
+  },
   "player": {
     "lyrics": "Letras",
     "no_lyrics": "Letras no disponibles",
