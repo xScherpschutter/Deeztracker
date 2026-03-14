@@ -79,7 +79,10 @@
     "empty_queue": "No hay más canciones en la cola",
     "add_to_queue": "Añadir a la cola",
     "already_in_queue": "ya está en la cola",
-    "added_to_queue": "añadido a la cola"
+    "added_to_queue": "añadido a la cola",
+    "remove_from_queue": "Eliminar de la cola",
+    "move_up": "Subir",
+    "move_down": "Bajar"
   },
   "player": {
     "lyrics": "Letras",

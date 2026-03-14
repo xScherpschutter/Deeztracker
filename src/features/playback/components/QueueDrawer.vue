@@ -156,6 +156,36 @@ const closeDrawer = () => {
                   <div class="text-sm font-medium truncate group-hover:text-primary transition-colors">{{ item.track.title }}</div>
                   <div class="text-xs text-textGray truncate">{{ item.track.artists[0]?.name }}</div>
                 </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <!-- Reorder (Only in non-shuffle) -->
+                  <template v-if="!isShuffle">
+                    <button 
+                      @click.stop="playbackStore.moveUp(item.originalIndex)" 
+                      class="p-1 hover:bg-white/10 rounded text-textGray hover:text-white transition-colors"
+                      :title="t('playback.move_up')"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                    </button>
+                    <button 
+                      @click.stop="playbackStore.moveDown(item.originalIndex)" 
+                      class="p-1 hover:bg-white/10 rounded text-textGray hover:text-white transition-colors"
+                      :title="t('playback.move_down')"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                  </template>
+
+                  <!-- Remove -->
+                  <button 
+                    @click.stop="playbackStore.removeFromQueue(item.originalIndex)" 
+                    class="p-1 hover:bg-red-500/20 rounded text-textGray hover:text-red-500 transition-colors"
+                    :title="t('playback.remove_from_queue')"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
               </div>
             </template>
             

@@ -79,7 +79,9 @@
     "empty_queue": "No more songs in queue",
     "add_to_queue": "Add to queue",
     "already_in_queue": "is already in the queue",
-    "added_to_queue": "added to queue"
+    "remove_from_queue": "Remove from queue",
+    "move_up": "Move up",
+    "move_down": "Move down"
   },
   "player": {
     "lyrics": "Lyrics",

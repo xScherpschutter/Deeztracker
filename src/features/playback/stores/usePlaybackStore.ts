@@ -367,6 +367,57 @@ export const usePlaybackStore = defineStore('playback', {
       notificationStore.notify(`${track.title} añadido a la cola`, 'success');
     },
 
+    removeFromQueue(originalIndex: number) {
+      if (originalIndex === this.currentIndex) return; // Don't remove currently playing
+      
+      const track = this.queue[originalIndex];
+      this.queue.splice(originalIndex, 1);
+      
+      // Fix currentIndex if needed
+      if (originalIndex < this.currentIndex) {
+        this.currentIndex--;
+      }
+
+      // Fix shuffledIndices
+      if (this.isShuffle) {
+        // Remove the index from shuffled sequence
+        const shufflePos = this.shuffledIndices.indexOf(originalIndex);
+        if (shufflePos !== -1) {
+          this.shuffledIndices.splice(shufflePos, 1);
+        }
+        // Adjust all indices greater than the removed one
+        this.shuffledIndices = this.shuffledIndices.map(idx => idx > originalIndex ? idx - 1 : idx);
+      }
+
+      const notificationStore = useNotificationStore();
+      notificationStore.notify(`${track.title} eliminado de la cola`, 'info');
+    },
+
+    moveUp(originalIndex: number) {
+      if (this.isShuffle) return; // Reordering in shuffle mode is complex, disable for now
+      if (originalIndex <= 0) return;
+      
+      const targetIndex = originalIndex - 1;
+      // Don't swap with current track
+      if (originalIndex === this.currentIndex || targetIndex === this.currentIndex) return;
+
+      const track = this.queue[originalIndex];
+      this.queue.splice(originalIndex, 1);
+      this.queue.splice(targetIndex, 0, track);
+    },
+
+    moveDown(originalIndex: number) {
+      if (this.isShuffle) return;
+      if (originalIndex >= this.queue.length - 1) return;
+      
+      const targetIndex = originalIndex + 1;
+      if (originalIndex === this.currentIndex || targetIndex === this.currentIndex) return;
+
+      const track = this.queue[originalIndex];
+      this.queue.splice(originalIndex, 1);
+      this.queue.splice(targetIndex, 0, track);
+    },
+
     resetProgress() {
       this.progress = 0;
       this.duration = 0;
