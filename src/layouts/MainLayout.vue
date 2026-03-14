@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import PlayerBar from '../features/playback/components/PlayerBar.vue';
 import QueueDrawer from '../features/playback/components/QueueDrawer.vue';
 import NotificationToast from '../components/NotificationToast.vue';
@@ -7,6 +8,22 @@ import { usePlaybackStore } from '../features/playback/stores/usePlaybackStore';
 
 const playbackStore = usePlaybackStore();
 const isDraggingOver = ref(false);
+const appWindow = getCurrentWindow();
+
+// Update Native Window Title (Taskbar) based on current track
+watch(() => playbackStore.currentTrack, async (track) => {
+  const title = track 
+    ? `${track.title} - ${track.artists[0]?.name}` 
+    : 'Deeztracker';
+  
+  // Update both DOM and Native Window
+  document.title = title;
+  try {
+    await appWindow.setTitle(title);
+  } catch (err) {
+    console.error('Failed to set native window title:', err);
+  }
+}, { immediate: true });
 
 const onDrop = (e: DragEvent) => {
   isDraggingOver.value = false;
