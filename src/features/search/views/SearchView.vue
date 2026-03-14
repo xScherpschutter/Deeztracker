@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useSearchStore } from '../stores/useSearchStore';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
+import { handleDragStart } from "../../../utils/drag";
 import type { SearchType, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -144,6 +145,8 @@ onUnmounted(() => {
                   v-for="(track, index) in searchStore.results.tracks" 
                   :key="track.ids.deezer"
                   @click="playbackStore.playTrack(track)"
+                  draggable="true"
+                  @dragstart="handleDragStart($event, track)"
                   class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                   :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
                 >
@@ -177,6 +180,13 @@ onUnmounted(() => {
                   <td class="py-3 pr-4">
                     <div class="flex items-center justify-end gap-3">
                       <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          @click.stop="playbackStore.addToQueue(track)" 
+                          class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
+                          :title="t('playback.add_to_queue')"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/><path d="m13 18 2 2 4-4"/></svg>
+                        </button>
                         <button 
                           @click.stop="libraryStore.toggleFavorite(track)" 
                           class="p-1.5 hover:bg-white/10 rounded-full transition-colors"

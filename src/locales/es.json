@@ -74,7 +74,8 @@
     "history": "Escuchado anteriormente",
     "now_playing": "Ahora suena",
     "next_up": "Siguiente",
-    "empty_queue": "No hay más canciones en la cola"
+    "empty_queue": "No hay más canciones en la cola",
+    "add_to_queue": "Añadir a la cola"
   },
   "player": {
     "lyrics": "Letras",

@@ -346,6 +346,17 @@ export const usePlaybackStore = defineStore('playback', {
       this.showQueue = !this.showQueue;
     },
 
+    addToQueue(track: Track) {
+      // Check if track is already in queue to avoid duplicates if desired, 
+      // but usually in music apps you can have duplicates. 
+      // For now, let's just add it at the end.
+      this.queue.push(track);
+      if (this.isShuffle) {
+        // Add new index to shuffledIndices
+        this.shuffledIndices.push(this.queue.length - 1);
+      }
+    },
+
     resetProgress() {
       this.progress = 0;
       this.duration = 0;
@@ -363,6 +374,11 @@ export const usePlaybackStore = defineStore('playback', {
     async fetchRadio(trackId: string) {
       try {
         const relatedTracks = await SearchService.getTrackRadio(trackId);
+        
+        // Race condition check: Only update if the track we're playing is still the one
+        // we requested the radio for.
+        if (this.currentTrack?.ids.deezer !== trackId) return;
+
         const newTracks = relatedTracks.filter(rt => !this.queue.some(q => q.ids.deezer === rt.ids.deezer));
         this.queue.push(...newTracks);
         if (this.isShuffle) {

@@ -74,7 +74,8 @@
     "history": "Previously played",
     "now_playing": "Now playing",
     "next_up": "Next up",
-    "empty_queue": "No more songs in queue"
+    "empty_queue": "No more songs in queue",
+    "add_to_queue": "Add to queue"
   },
   "player": {
     "lyrics": "Lyrics",

@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router';
 import { SearchService } from '../../search/services/searchService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
+import { handleDragStart } from "../../../utils/drag";
 import type { Track, Album, Artist, Playlist } from '../../search/models/search';
 import { getImageUrl } from '../../search/utils/image';
 import LoadingSpinner from '../../search/components/LoadingSpinner.vue';
@@ -94,6 +95,8 @@ onMounted(async () => {
               v-for="(track, index) in charts.tracks.slice(0, 5)" 
               :key="track.ids.deezer"
               @click="playTrack(track)"
+              draggable="true"
+              @dragstart="handleDragStart($event, track)"
               class="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             >
               <span class="w-6 text-center text-textGray text-sm font-mono">{{ index + 1 }}</span>
@@ -105,6 +108,15 @@ onMounted(async () => {
                 <p class="text-xs text-textGray truncate">{{ track.artists[0]?.name }}</p>
               </div>
               <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <!-- Add to Queue -->
+                <button 
+                  @click.stop="playbackStore.addToQueue(track)" 
+                  class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
+                  :title="t('playback.add_to_queue')"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/><path d="m13 18 2 2 4-4"/></svg>
+                </button>
+
                 <button 
                   @click.stop="libraryStore.toggleFavorite(track)" 
                   class="p-1.5 hover:bg-white/10 rounded-full transition-colors"

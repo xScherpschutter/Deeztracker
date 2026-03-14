@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
-import type { Track } from '../../search/models/search';
 
 const { t } = useI18n();
 const playbackStore = usePlaybackStore();
@@ -106,7 +105,7 @@ const closeDrawer = () => {
           <div class="text-xs font-bold text-textGray uppercase tracking-wider mb-3 px-2">{{ t('playback.history') }}</div>
           <div class="space-y-1">
             <div 
-              v-for="(item, index) in historyQueue" :key="'hist-'+index"
+              v-for="item in historyQueue" :key="'hist-'+item.originalIndex"
               @click="playFromQueue(item.originalIndex)"
               class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer group"
             >
@@ -142,7 +141,7 @@ const closeDrawer = () => {
         <div>
           <div class="text-xs font-bold text-textGray uppercase tracking-wider mb-3 px-2">{{ t('playback.next_up') }}</div>
           <div class="space-y-1">
-            <template v-for="(item, index) in displayQueue" :key="'next-'+index">
+            <template v-for="item in displayQueue" :key="'next-'+item.originalIndex">
               <div 
                 @click="playFromQueue(item.originalIndex)"
                 class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer group transition-all"

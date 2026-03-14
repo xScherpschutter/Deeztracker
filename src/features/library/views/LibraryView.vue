@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../../search/utils/time';
 import { getImageUrl } from '../../search/utils/image';
 import { getRelativeTime } from '../../../utils/date';
+import { handleDragStart } from '../../../utils/drag';
 import type { Track } from '../../search/models/search';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
 import PlaylistCover from '../components/PlaylistCover.vue';
@@ -210,6 +211,8 @@ const cancelDeletePlaylist = () => {
                 v-for="(track, index) in filteredFavorites" 
                 :key="track.ids.deezer"
                 @click="playFavorite(track)"
+                draggable="true"
+                @dragstart="handleDragStart($event, track)"
                 class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                 :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
@@ -240,12 +243,23 @@ const cancelDeletePlaylist = () => {
                 </td>
                 <td class="py-3 pr-4">
                   <div class="flex items-center justify-end gap-3">
-                    <button 
-                      @click.stop="libraryStore.toggleFavorite(track)" 
-                      class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white/10 rounded-full transition-all text-primary"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                    </button>
+                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <!-- Add to Queue -->
+                      <button 
+                        @click.stop="playbackStore.addToQueue(track)" 
+                        class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
+                        :title="t('playback.add_to_queue')"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/><path d="m13 18 2 2 4-4"/></svg>
+                      </button>
+
+                      <button 
+                        @click.stop="libraryStore.toggleFavorite(track)" 
+                        class="p-1.5 hover:bg-white/10 rounded-full transition-all text-primary"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                      </button>
+                    </div>
                     <span class="text-xs text-textGray font-mono tabular-nums w-10 text-right">{{ formatDuration(track.duration_ms) }}</span>
                   </div>
                 </td>
