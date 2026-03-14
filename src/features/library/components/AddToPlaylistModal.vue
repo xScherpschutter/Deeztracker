@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useLibraryStore } from '../stores/useLibraryStore';
+import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { useI18n } from 'vue-i18n';
 import type { Track } from '../../search/models/search';
 import PlaylistCover from './PlaylistCover.vue';
@@ -12,11 +13,14 @@ const props = defineProps<{
 const emit = defineEmits(['close']);
 
 const libraryStore = useLibraryStore();
+const notificationStore = useNotificationStore();
 const { t } = useI18n();
 
 const addToPlaylist = async (playlistId: number) => {
   if (props.track) {
+    const playlist = libraryStore.playlists.find(p => p.id === playlistId);
     await libraryStore.addTrackToPlaylist(playlistId, props.track);
+    notificationStore.notify(t('library.added_to_playlist', { name: playlist?.name || '' }));
     emit('close');
   }
 };

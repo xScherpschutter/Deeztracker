@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useLibraryStore } from '../stores/useLibraryStore'; 
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
+import { useNotificationStore } from '../../../stores/useNotificationStore';
 import type { Track } from '../../search/models/search';
 import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../../search/utils/time';  
@@ -17,6 +18,7 @@ const route = useRoute();
 const router = useRouter();
 const libraryStore = useLibraryStore();
 const playbackStore = usePlaybackStore();
+const notificationStore = useNotificationStore();
 
 const playlistId = Number(route.params.id);
 const tracks = ref<Track[]>([]);
@@ -102,6 +104,7 @@ const toggleSort = (key: typeof sortBy.value) => {
 const removeFromPlaylist = async (trackId: string) => {
   await libraryStore.removeTrackFromPlaylist(playlistId, trackId);
   tracks.value = tracks.value.filter(t => t.ids.deezer !== trackId);
+  notificationStore.notify(t('library.removed_from_playlist', { name: playlist.value?.name || '' }), 'info');
 };
 </script>
 

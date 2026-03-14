@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { Track } from '../../search/models/search';
+import { useNotificationStore } from '../../../stores/useNotificationStore';
 
 export interface LocalPlaylist {
   id: number;
@@ -26,14 +27,17 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   async function toggleFavorite(track: Track) {
+    const notificationStore = useNotificationStore();
     try {
       const result = await invoke<Track | null>('toggle_favorite', { track });
       if (result) {
         // Add to local state with the backend-provided added_at timestamp
         favorites.value = [result, ...favorites.value];
+        notificationStore.notify(`${track.title} añadido a favoritos`);
       } else {
         // Remove from local state
         favorites.value = favorites.value.filter(t => t.ids.deezer !== track.ids.deezer);
+        notificationStore.notify(`${track.title} eliminado de favoritos`, 'info');
       }
       return !!result;
     } catch (e) {
@@ -57,12 +61,15 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   async function createPlaylist(name: string, description?: string) {
+    const notificationStore = useNotificationStore();
     try {
       const id = await invoke<number>('create_playlist', { name, description });
       await loadPlaylists();
+      notificationStore.notify(`Playlist "${name}" creada`);
       return id;
     } catch (e) {
       console.error('Failed to create playlist', e);
+      notificationStore.notify('Error al crear la playlist', 'error');
       return null;
     }
   }

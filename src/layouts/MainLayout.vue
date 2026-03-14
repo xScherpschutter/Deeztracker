@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import PlayerBar from '../features/playback/components/PlayerBar.vue';
 import QueueDrawer from '../features/playback/components/QueueDrawer.vue';
+import NotificationToast from '../components/NotificationToast.vue';
 import { usePlaybackStore } from '../features/playback/stores/usePlaybackStore';
 
 const playbackStore = usePlaybackStore();
@@ -55,6 +56,9 @@ const onDrop = (e: DragEvent) => {
 
     <!-- Player Bar -->
     <PlayerBar />
+
+    <!-- Notifications -->
+    <NotificationToast />
   </div>
 </template>
 

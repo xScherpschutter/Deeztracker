@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import type { Track } from '../../search/models/search';
 import { PlaybackService } from '../services/playbackService';
 import { SearchService } from '../../search/services/searchService';
+import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { LrcParser, type LrcLine } from '../utils/lrcParser';
@@ -347,14 +348,23 @@ export const usePlaybackStore = defineStore('playback', {
     },
 
     addToQueue(track: Track) {
-      // Check if track is already in queue to avoid duplicates if desired, 
-      // but usually in music apps you can have duplicates. 
-      // For now, let's just add it at the end.
+      // Avoid duplicates
+      const exists = this.queue.some(t => t.ids.deezer === track.ids.deezer);
+      const notificationStore = useNotificationStore();
+
+      if (exists) {
+        notificationStore.notify(`${track.title} ya está en la cola`, 'error');
+        return;
+      }
+
       this.queue.push(track);
       if (this.isShuffle) {
         // Add new index to shuffledIndices
         this.shuffledIndices.push(this.queue.length - 1);
       }
+
+      // Show notification
+      notificationStore.notify(`${track.title} añadido a la cola`, 'success');
     },
 
     resetProgress() {

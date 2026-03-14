@@ -51,6 +51,8 @@
     "delete_playlist_confirm": "¿Estás seguro de que quieres eliminar esta playlist?",
     "delete_playlist_btn": "Eliminar",
     "playlist_created": "Playlist creada con éxito",
+    "added_to_favorites": "Añadido a favoritos",
+    "removed_from_favorites": "Eliminado de favoritos",
     "sort_by": "Ordenar por",
     "added_to_playlist": "Añadido a {name}",
     "removed_from_playlist": "Eliminado de {name}",
@@ -75,7 +77,9 @@
     "now_playing": "Ahora suena",
     "next_up": "Siguiente",
     "empty_queue": "No hay más canciones en la cola",
-    "add_to_queue": "Añadir a la cola"
+    "add_to_queue": "Añadir a la cola",
+    "already_in_queue": "ya está en la cola",
+    "added_to_queue": "añadido a la cola"
   },
   "player": {
     "lyrics": "Letras",

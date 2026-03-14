@@ -51,6 +51,8 @@
     "delete_playlist_confirm": "Are you sure you want to delete this playlist?",
     "delete_playlist_btn": "Delete",
     "playlist_created": "Playlist created successfully",
+    "added_to_favorites": "Added to Favorites",
+    "removed_from_favorites": "Removed from Favorites",
     "sort_by": "Sort by",
     "added_to_playlist": "Added to {name}",
     "removed_from_playlist": "Removed from {name}",
@@ -75,7 +77,9 @@
     "now_playing": "Now playing",
     "next_up": "Next up",
     "empty_queue": "No more songs in queue",
-    "add_to_queue": "Add to queue"
+    "add_to_queue": "Add to queue",
+    "already_in_queue": "is already in the queue",
+    "added_to_queue": "added to queue"
   },
   "player": {
     "lyrics": "Lyrics",
