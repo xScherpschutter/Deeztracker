@@ -426,6 +426,36 @@ impl DeezerApi {
             .collect()
     }
 
+    /// Get smart radio tracks for an artist.
+    ///
+    /// Calls `GET /artist/{id}/radio?limit={limit}` which returns a curated
+    /// mix of tracks from the artist and similar artists, powered by Deezer's
+    /// recommendation algorithm.
+    pub async fn get_artist_radio(&self, artist_id: &str, limit: u32) -> Result<Vec<Track>> {
+        let response = self
+            .get_api(&format!("artist/{}/radio?limit={}", artist_id, limit))
+            .await?;
+
+        let tracks_data = response
+            .get("data")
+            .and_then(|d| d.as_array())
+            .ok_or_else(|| DeezerError::NoDataApi("No radio tracks data".to_string()))?;
+
+        let parsed: Vec<Track> = tracks_data
+            .iter()
+            .filter_map(|t| converters::parse_track(t).ok())
+            .collect();
+
+        if parsed.is_empty() {
+            return Err(DeezerError::NoDataApi(format!(
+                "No radio tracks for artist {}",
+                artist_id
+            )));
+        }
+
+        Ok(parsed)
+    }
+
     /// Get an artist's albums.
     pub async fn get_artist_albums(&self, artist_id: &str, limit: u32) -> Result<Vec<Album>> {
         let response = self
@@ -446,8 +476,10 @@ impl DeezerApi {
 
     /// Get related artists.
     pub async fn get_related_artists(&self, artist_id: &str) -> Result<Vec<Artist>> {
-        let response = self.get_api(&format!("artist/{}/related", artist_id)).await?;
-        
+        let response = self
+            .get_api(&format!("artist/{}/related", artist_id))
+            .await?;
+
         let artists_data = response
             .get("data")
             .and_then(|d| d.as_array())
@@ -465,7 +497,11 @@ impl DeezerApi {
         let response = self
             .get_api_with_params(
                 "search/track",
-                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
+                &[
+                    ("q", query),
+                    ("limit", &limit.to_string()),
+                    ("index", &index.to_string()),
+                ],
             )
             .await?;
 
@@ -491,7 +527,11 @@ impl DeezerApi {
         let response = self
             .get_api_with_params(
                 "search/album",
-                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
+                &[
+                    ("q", query),
+                    ("limit", &limit.to_string()),
+                    ("index", &index.to_string()),
+                ],
             )
             .await?;
 
@@ -517,7 +557,11 @@ impl DeezerApi {
         let response = self
             .get_api_with_params(
                 "search/artist",
-                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
+                &[
+                    ("q", query),
+                    ("limit", &limit.to_string()),
+                    ("index", &index.to_string()),
+                ],
             )
             .await?;
 
@@ -539,11 +583,20 @@ impl DeezerApi {
     }
 
     /// Search for playlists.
-    pub async fn search_playlists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Playlist>> {
+    pub async fn search_playlists(
+        &self,
+        query: &str,
+        limit: u32,
+        index: u32,
+    ) -> Result<Vec<Playlist>> {
         let response = self
             .get_api_with_params(
                 "search/playlist",
-                &[("q", query), ("limit", &limit.to_string()), ("index", &index.to_string())],
+                &[
+                    ("q", query),
+                    ("limit", &limit.to_string()),
+                    ("index", &index.to_string()),
+                ],
             )
             .await?;
 

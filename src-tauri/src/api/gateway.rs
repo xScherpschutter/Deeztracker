@@ -256,16 +256,6 @@ impl GatewayApi {
         Ok(results)
     }
 
-    /// Get smart radio tracks based on a track ID.
-    pub async fn get_smart_radio(&self, track_id: &str) -> Result<Value> {
-        let json_data = json!({
-            "SNG_ID": track_id,
-            "SELECT_TRACKS": true
-        });
-
-        self.call_api("song.getSelection", Some(json_data)).await
-    }
-
     /// Get user data (includes checkForm token and license token).
     async fn get_user_data(&self) -> Result<Value> {
         self.call_api("deezer.getUserData", None).await

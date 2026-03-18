@@ -6,8 +6,8 @@
 use std::fs;
 use std::io::{Result as IoResult, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
 use crate::api::{DeezerApi, GatewayApi};
@@ -139,10 +139,18 @@ impl Rusteer {
         })
     }
 
-    pub fn set_quality(&mut self, quality: DownloadQuality) { self.preferred_quality = quality; }
-    pub fn quality(&self) -> DownloadQuality { self.preferred_quality }
-    pub fn output_dir(&self) -> &Path { &self.output_dir }
-    pub fn has_premium(&self) -> bool { self.gateway_api.has_license_token() }
+    pub fn set_quality(&mut self, quality: DownloadQuality) {
+        self.preferred_quality = quality;
+    }
+    pub fn quality(&self) -> DownloadQuality {
+        self.preferred_quality
+    }
+    pub fn output_dir(&self) -> &Path {
+        &self.output_dir
+    }
+    pub fn has_premium(&self) -> bool {
+        self.gateway_api.has_license_token()
+    }
 
     pub async fn preload_track(&self, track_id: &str) -> Result<()> {
         let _ = self.get_or_create_buffer(track_id).await?;
@@ -152,7 +160,10 @@ impl Rusteer {
     async fn get_or_create_buffer(&self, track_id: &str) -> Result<StreamCache> {
         {
             let mut cache = self.stream_cache.lock().unwrap();
-            if let Some(pos) = cache.iter().position(|c| c.track_id == track_id && c.quality == self.preferred_quality) {
+            if let Some(pos) = cache
+                .iter()
+                .position(|c| c.track_id == track_id && c.quality == self.preferred_quality)
+            {
                 let item = cache.remove(pos);
                 cache.push(item.clone());
                 return Ok(item);
@@ -164,9 +175,16 @@ impl Rusteer {
         let title = track.title.clone();
         let song_data = self.gateway_api.get_song_data(track_id).await?;
 
-        if !song_data.readable { return Err(DeezerError::TrackNotFound(format!("Track {} not readable", track_id))); }
+        if !song_data.readable {
+            return Err(DeezerError::TrackNotFound(format!(
+                "Track {} not readable",
+                track_id
+            )));
+        }
 
-        let track_token = song_data.track_token.ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
+        let track_token = song_data
+            .track_token
+            .ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
         let (media_url, quality) = self.find_media_url(&track_token).await?;
 
         let shared_buffer = SharedBuffer::new();
@@ -180,7 +198,9 @@ impl Rusteer {
 
         {
             let mut cache = self.stream_cache.lock().unwrap();
-            if cache.len() >= 5 { cache.remove(0); }
+            if cache.len() >= 5 {
+                cache.remove(0);
+            }
             cache.push(cache_item.clone());
         }
 
@@ -203,8 +223,12 @@ impl Rusteer {
                         chunk_buffer.extend_from_slice(&bytes);
                         while chunk_buffer.len() >= 2048 {
                             let block: Vec<u8> = chunk_buffer.drain(..2048).collect();
-                            let processed = if block_index % 3 == 0 { crypto::decrypt_blowfish_chunk(&block, &key) } else { block };
-                            
+                            let processed = if block_index % 3 == 0 {
+                                crypto::decrypt_blowfish_chunk(&block, &key)
+                            } else {
+                                block
+                            };
+
                             batch_buffer.extend_from_slice(&processed);
                             block_index += 1;
 
@@ -217,7 +241,9 @@ impl Rusteer {
                                 batch_buffer.clear();
                             }
                         }
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
                 if !batch_buffer.is_empty() {
                     let mut data = buffer_clone.data.lock().unwrap();
@@ -242,7 +268,10 @@ impl Rusteer {
         _end_byte: Option<u64>,
     ) -> Result<StreamingResult> {
         let cache = self.get_or_create_buffer(track_id).await?;
-        let stream = BufferStream { buffer: cache.buffer.clone(), pos: start_byte as usize };
+        let stream = BufferStream {
+            buffer: cache.buffer.clone(),
+            pos: start_byte as usize,
+        };
 
         Ok(StreamingResult {
             quality: cache.quality,
@@ -254,81 +283,245 @@ impl Rusteer {
         })
     }
 
-    async fn find_media_url(&self, track_token: &str) -> Result<(crate::api::gateway::MediaUrl, DownloadQuality)> {
+    async fn find_media_url(
+        &self,
+        track_token: &str,
+    ) -> Result<(crate::api::gateway::MediaUrl, DownloadQuality)> {
         let qualities = match self.preferred_quality {
-            DownloadQuality::Flac => vec![DownloadQuality::Flac, DownloadQuality::Mp3_320, DownloadQuality::Mp3_128],
+            DownloadQuality::Flac => vec![
+                DownloadQuality::Flac,
+                DownloadQuality::Mp3_320,
+                DownloadQuality::Mp3_128,
+            ],
             DownloadQuality::Mp3_320 => vec![DownloadQuality::Mp3_320, DownloadQuality::Mp3_128],
             DownloadQuality::Mp3_128 => vec![DownloadQuality::Mp3_128],
         };
         for quality in qualities {
-            if let Ok(urls) = self.gateway_api.get_media_url(&[track_token.to_string()], quality.format()).await {
-                if let Some(url) = urls.into_iter().next() { return Ok((url, quality)); }
+            if let Ok(urls) = self
+                .gateway_api
+                .get_media_url(&[track_token.to_string()], quality.format())
+                .await
+            {
+                if let Some(url) = urls.into_iter().next() {
+                    return Ok((url, quality));
+                }
             }
         }
         Err(DeezerError::NoRightOnMedia("No media URL".to_string()))
     }
 
-    pub async fn get_track(&self, track_id: &str) -> Result<Track> { self.public_api.get_track(track_id).await }
-    pub async fn get_album(&self, album_id: &str) -> Result<Album> { self.public_api.get_album(album_id).await }
-    pub async fn get_playlist(&self, playlist_id: &str) -> Result<Playlist> { self.public_api.get_playlist(playlist_id).await }
-    pub async fn get_artist(&self, artist_id: &str) -> Result<Artist> { self.public_api.get_artist(artist_id).await }
-    pub async fn get_artist_top_tracks(&self, artist_id: &str, limit: u32) -> Result<Vec<Track>> { self.public_api.get_artist_top_tracks(artist_id, limit).await }
-    pub async fn get_artist_albums(&self, artist_id: &str, limit: u32) -> Result<Vec<Album>> { self.public_api.get_artist_albums(artist_id, limit).await }
-    pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> { self.public_api.search_tracks(query, limit, index).await }
-    pub async fn search_albums(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Album>> { self.public_api.search_albums(query, limit, index).await }
-    pub async fn search_artists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Artist>> { self.public_api.search_artists(query, limit, index).await }
-    pub async fn search_playlists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Playlist>> { self.public_api.search_playlists(query, limit, index).await }
+    pub async fn get_track(&self, track_id: &str) -> Result<Track> {
+        self.public_api.get_track(track_id).await
+    }
+    pub async fn get_album(&self, album_id: &str) -> Result<Album> {
+        self.public_api.get_album(album_id).await
+    }
+    pub async fn get_playlist(&self, playlist_id: &str) -> Result<Playlist> {
+        self.public_api.get_playlist(playlist_id).await
+    }
+    pub async fn get_artist(&self, artist_id: &str) -> Result<Artist> {
+        self.public_api.get_artist(artist_id).await
+    }
+    pub async fn get_artist_top_tracks(&self, artist_id: &str, limit: u32) -> Result<Vec<Track>> {
+        self.public_api
+            .get_artist_top_tracks(artist_id, limit)
+            .await
+    }
+    pub async fn get_artist_albums(&self, artist_id: &str, limit: u32) -> Result<Vec<Album>> {
+        self.public_api.get_artist_albums(artist_id, limit).await
+    }
+    pub async fn search_tracks(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Track>> {
+        self.public_api.search_tracks(query, limit, index).await
+    }
+    pub async fn search_albums(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Album>> {
+        self.public_api.search_albums(query, limit, index).await
+    }
+    pub async fn search_artists(&self, query: &str, limit: u32, index: u32) -> Result<Vec<Artist>> {
+        self.public_api.search_artists(query, limit, index).await
+    }
+    pub async fn search_playlists(
+        &self,
+        query: &str,
+        limit: u32,
+        index: u32,
+    ) -> Result<Vec<Playlist>> {
+        self.public_api.search_playlists(query, limit, index).await
+    }
 
     pub async fn get_track_radio(&self, track_id: &str) -> Result<Vec<Track>> {
         let track = self.get_track(track_id).await?;
-        let primary_artist_id = track.artists.first().and_then(|a| a.ids.deezer.as_ref()).ok_or_else(|| DeezerError::NoDataApi("No artist ID".to_string()))?;
-        let related_artists = self.public_api.get_related_artists(primary_artist_id).await.unwrap_or_default();
-        if related_artists.is_empty() { return self.get_artist_top_tracks(primary_artist_id, 25).await; }
+        let primary_artist_id = track
+            .artists
+            .first()
+            .and_then(|a| a.ids.deezer.as_ref())
+            .ok_or_else(|| DeezerError::NoDataApi("No artist ID".to_string()))?;
+
+        match self
+            .public_api
+            .get_artist_radio(primary_artist_id, 40)
+            .await
+        {
+            Ok(tracks) if !tracks.is_empty() => {
+                return Ok(tracks);
+            }
+            Ok(_) => {}
+            Err(_e) => {}
+        }
+
+        let related_artists = self
+            .public_api
+            .get_related_artists(primary_artist_id)
+            .await
+            .unwrap_or_default();
+
+        if related_artists.is_empty() {
+            return self.get_artist_top_tracks(primary_artist_id, 25).await;
+        }
+
         let mut mix_tracks = Vec::new();
         for related in related_artists.iter().take(5) {
-            if let Some(rid) = &related.ids.deezer { if let Ok(tops) = self.get_artist_top_tracks(rid, 10).await { mix_tracks.extend(tops.into_iter().take(10)); } }
+            if let Some(rid) = &related.ids.deezer {
+                if let Ok(tops) = self.get_artist_top_tracks(rid, 10).await {
+                    mix_tracks.extend(tops.into_iter().take(10));
+                }
+            }
         }
-        use rand::seq::SliceRandom; mix_tracks.shuffle(&mut rand::thread_rng()); Ok(mix_tracks)
+
+        use rand::seq::SliceRandom;
+        mix_tracks.shuffle(&mut rand::thread_rng());
+        Ok(mix_tracks)
     }
 
-    pub async fn download_track_to<P: AsRef<Path>>(&self, track_id: &str, output_dir: P) -> Result<DownloadResult> {
-        let output_dir = output_dir.as_ref(); fs::create_dir_all(output_dir)?;
+    pub async fn download_track_to<P: AsRef<Path>>(
+        &self,
+        track_id: &str,
+        output_dir: P,
+    ) -> Result<DownloadResult> {
+        let output_dir = output_dir.as_ref();
+        fs::create_dir_all(output_dir)?;
         let track = self.public_api.get_track(track_id).await?;
-        let artist = track.artists_string(", "); let title = track.title.clone();
+        let artist = track.artists_string(", ");
+        let title = track.title.clone();
         let song_data = self.gateway_api.get_song_data(track_id).await?;
-        if !song_data.readable { return Err(DeezerError::TrackNotFound("Not readable".to_string())); }
-        let track_token = song_data.track_token.ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
+        if !song_data.readable {
+            return Err(DeezerError::TrackNotFound("Not readable".to_string()));
+        }
+        let track_token = song_data
+            .track_token
+            .ok_or_else(|| DeezerError::NoDataApi("No track token".to_string()))?;
         let (media_url, quality) = self.find_media_url(&track_token).await?;
-        let encrypted_bytes = reqwest::Client::new().get(&media_url.url).send().await?.bytes().await?;
-        let safe_artist = sanitize_filename(&artist); let safe_title = sanitize_filename(&title);
-        let output_path = output_dir.join(format!("{} - {}{}", safe_artist, safe_title, quality.extension()));
+        let encrypted_bytes = reqwest::Client::new()
+            .get(&media_url.url)
+            .send()
+            .await?
+            .bytes()
+            .await?;
+        let safe_artist = sanitize_filename(&artist);
+        let safe_title = sanitize_filename(&title);
+        let output_path = output_dir.join(format!(
+            "{} - {}{}",
+            safe_artist,
+            safe_title,
+            quality.extension()
+        ));
         crypto::decrypt_track(&encrypted_bytes, track_id, &output_path)?;
         if self.embed_tags {
-            let cover_art = if !track.album.images.is_empty() { tagging::fetch_cover_art(&track.album.images[0].url).await } else { None };
-            let metadata = AudioMetadata::new().with_title(&track.title).with_artist(&artist).with_album(&track.album.title).with_album_artist(&track.album.artists_string(", ")).with_track(track.track_number, Some(track.album.total_tracks)).with_disc(track.disc_number, Some(track.album.total_discs)).with_year(track.album.release_date.year);
-            let metadata = if let Some(isrc) = &track.ids.isrc { metadata.with_isrc(isrc) } else { metadata };
-            let metadata = if !track.album.genres.is_empty() { metadata.with_genre(track.album.genres.join(", ")) } else { metadata };
-            let metadata = if let Some(cover) = cover_art { metadata.with_cover_art(cover) } else { metadata };
+            let cover_art = if !track.album.images.is_empty() {
+                tagging::fetch_cover_art(&track.album.images[0].url).await
+            } else {
+                None
+            };
+            let metadata = AudioMetadata::new()
+                .with_title(&track.title)
+                .with_artist(&artist)
+                .with_album(&track.album.title)
+                .with_album_artist(&track.album.artists_string(", "))
+                .with_track(track.track_number, Some(track.album.total_tracks))
+                .with_disc(track.disc_number, Some(track.album.total_discs))
+                .with_year(track.album.release_date.year);
+            let metadata = if let Some(isrc) = &track.ids.isrc {
+                metadata.with_isrc(isrc)
+            } else {
+                metadata
+            };
+            let metadata = if !track.album.genres.is_empty() {
+                metadata.with_genre(track.album.genres.join(", "))
+            } else {
+                metadata
+            };
+            let metadata = if let Some(cover) = cover_art {
+                metadata.with_cover_art(cover)
+            } else {
+                metadata
+            };
             tagging::write_metadata(&output_path, &metadata)?;
         }
-        Ok(DownloadResult { path: output_path, quality, size: fs::metadata(output_dir.join(format!("{} - {}{}", safe_artist, safe_title, quality.extension())))?.len(), title, artist })
+        Ok(DownloadResult {
+            path: output_path,
+            quality,
+            size: fs::metadata(output_dir.join(format!(
+                "{} - {}{}",
+                safe_artist,
+                safe_title,
+                quality.extension()
+            )))?
+            .len(),
+            title,
+            artist,
+        })
     }
 
-    pub async fn download_album_to<P: AsRef<Path>>(&self, album_id: &str, output_dir: P) -> Result<BatchDownloadResult> {
+    pub async fn download_album_to<P: AsRef<Path>>(
+        &self,
+        album_id: &str,
+        output_dir: P,
+    ) -> Result<BatchDownloadResult> {
         let album = self.public_api.get_album(album_id).await?;
-        let album_dir = output_dir.as_ref().join(format!("{} - {}", sanitize_filename(&album.artists_string(", ")), sanitize_filename(&album.title)));
+        let album_dir = output_dir.as_ref().join(format!(
+            "{} - {}",
+            sanitize_filename(&album.artists_string(", ")),
+            sanitize_filename(&album.title)
+        ));
         fs::create_dir_all(&album_dir)?;
-        let mut result = BatchDownloadResult { directory: album_dir.clone(), successful: Vec::new(), failed: Vec::new() };
-        for track in &album.tracks { if let Some(track_id) = &track.ids.deezer { match self.download_track_to(track_id, &album_dir).await { Ok(dr) => result.successful.push(dr), Err(e) => result.failed.push((track.title.clone(), e.to_string())), } } }
+        let mut result = BatchDownloadResult {
+            directory: album_dir.clone(),
+            successful: Vec::new(),
+            failed: Vec::new(),
+        };
+        for track in &album.tracks {
+            if let Some(track_id) = &track.ids.deezer {
+                match self.download_track_to(track_id, &album_dir).await {
+                    Ok(dr) => result.successful.push(dr),
+                    Err(e) => result.failed.push((track.title.clone(), e.to_string())),
+                }
+            }
+        }
         Ok(result)
     }
 
-    pub async fn download_playlist_to<P: AsRef<Path>>(&self, playlist_id: &str, output_dir: P) -> Result<BatchDownloadResult> {
+    pub async fn download_playlist_to<P: AsRef<Path>>(
+        &self,
+        playlist_id: &str,
+        output_dir: P,
+    ) -> Result<BatchDownloadResult> {
         let playlist = self.public_api.get_playlist(playlist_id).await?;
-        let playlist_dir = output_dir.as_ref().join(format!("Playlist - {}", sanitize_filename(&playlist.title)));
+        let playlist_dir = output_dir
+            .as_ref()
+            .join(format!("Playlist - {}", sanitize_filename(&playlist.title)));
         fs::create_dir_all(&playlist_dir)?;
-        let mut result = BatchDownloadResult { directory: playlist_dir.clone(), successful: Vec::new(), failed: Vec::new() };
-        for (_idx, track) in playlist.tracks.iter().enumerate() { if let Some(track_id) = &track.ids.deezer { match self.download_track_to(track_id, &playlist_dir).await { Ok(dr) => result.successful.push(dr), Err(e) => result.failed.push((track.title.clone(), e.to_string())), } } }
+        let mut result = BatchDownloadResult {
+            directory: playlist_dir.clone(),
+            successful: Vec::new(),
+            failed: Vec::new(),
+        };
+        for (_idx, track) in playlist.tracks.iter().enumerate() {
+            if let Some(track_id) = &track.ids.deezer {
+                match self.download_track_to(track_id, &playlist_dir).await {
+                    Ok(dr) => result.successful.push(dr),
+                    Err(e) => result.failed.push((track.title.clone(), e.to_string())),
+                }
+            }
+        }
         Ok(result)
     }
 }
@@ -340,18 +533,29 @@ struct BufferStream {
 }
 
 impl tokio::io::AsyncRead for BufferStream {
-    fn poll_read(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> std::task::Poll<IoResult<()>> {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<IoResult<()>> {
         let data = self.buffer.data.lock().unwrap();
         if self.pos < data.len() {
             let to_read = std::cmp::min(buf.remaining(), data.len() - self.pos);
             buf.put_slice(&data[self.pos..self.pos + to_read]);
             let new_pos = self.pos + to_read;
-            drop(data); self.pos = new_pos;
+            drop(data);
+            self.pos = new_pos;
             return std::task::Poll::Ready(Ok(()));
         }
-        if self.buffer.is_complete.load(Ordering::SeqCst) { return std::task::Poll::Ready(Ok(())); }
-        let notify = self.buffer.notify.clone(); let waker = cx.waker().clone();
-        tokio::spawn(async move { notify.notified().await; waker.wake(); });
+        if self.buffer.is_complete.load(Ordering::SeqCst) {
+            return std::task::Poll::Ready(Ok(()));
+        }
+        let notify = self.buffer.notify.clone();
+        let waker = cx.waker().clone();
+        tokio::spawn(async move {
+            notify.notified().await;
+            waker.wake();
+        });
         std::task::Poll::Pending
     }
 }
@@ -366,11 +570,29 @@ impl tokio::io::AsyncSeek for BufferStream {
         }
         Ok(())
     }
-    fn poll_complete(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<IoResult<u64>> {
+    fn poll_complete(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<IoResult<u64>> {
         std::task::Poll::Ready(Ok(self.pos as u64))
     }
 }
 
-fn sanitize_filename(name: &str) -> String { name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_").trim().to_string() }
-pub struct BatchDownloadResult { pub directory: PathBuf, pub successful: Vec<DownloadResult>, pub failed: Vec<(String, String)> }
-impl BatchDownloadResult { pub fn total(&self) -> usize { self.successful.len() + self.failed.len() } pub fn all_successful(&self) -> bool { self.failed.is_empty() } }
+fn sanitize_filename(name: &str) -> String {
+    name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
+        .trim()
+        .to_string()
+}
+pub struct BatchDownloadResult {
+    pub directory: PathBuf,
+    pub successful: Vec<DownloadResult>,
+    pub failed: Vec<(String, String)>,
+}
+impl BatchDownloadResult {
+    pub fn total(&self) -> usize {
+        self.successful.len() + self.failed.len()
+    }
+    pub fn all_successful(&self) -> bool {
+        self.failed.is_empty()
+    }
+}
