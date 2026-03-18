@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { usePlaybackStore } from '../stores/usePlaybackStore';
+import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { computed, ref, watch, onMounted, nextTick } from 'vue';
 
 const store = usePlaybackStore();
+const libraryStore = useLibraryStore();
 const lyricsList = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 const localProgress = ref(0);
@@ -89,12 +91,12 @@ const seekTo = (timeMs: number) => {
     </div>
 
     <!-- Main Content: Two Columns -->
-    <div class="flex-1 flex flex-col md:flex-row items-center justify-center gap-12 px-8 pb-8 overflow-hidden min-h-0">
+    <div class="flex-1 flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-32 xl:gap-64 px-8 pb-8 overflow-hidden min-h-0">
       
       <!-- Left Column: Cover + Info + Controls (all centered) -->
       <div class="flex-1 flex flex-col items-center justify-center max-w-md">
         <!-- Album Cover -->
-        <div class="w-56 h-56 md:w-64 md:h-64 lg:w-72 lg:h-72 shadow-2xl rounded-xl overflow-hidden flex-shrink-0 relative">
+        <div class="w-56 h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 shadow-2xl rounded-xl overflow-hidden flex-shrink-0 relative">
           <img :src="currentTrack.album.images[0]?.url" 
                class="w-full h-full object-cover" />
           <div v-if="store.isBuffering" class="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -103,14 +105,26 @@ const seekTo = (timeMs: number) => {
         </div>
 
         <!-- Track Info -->
-        <div class="mt-6 text-center w-full px-4">
-          <h1 class="text-2xl font-bold truncate">{{ currentTrack.title }}</h1>
-          <p class="text-base text-white/60 mt-1 truncate">{{ currentTrack.artists.map(a => a.name).join(', ') }}</p>
-          <p class="text-sm text-white/40 mt-0.5 truncate">{{ currentTrack.album.title }}</p>
+        <div class="mt-8 w-full px-4 flex flex-col items-center">
+          <div class="w-full relative max-w-md group">
+            <div class="text-center px-12">
+              <h1 class="text-3xl font-bold truncate">{{ currentTrack.title }}</h1>
+              <p class="text-lg text-white/60 mt-1 truncate">{{ currentTrack.artists.map(a => a.name).join(', ') }}</p>
+            </div>
+            <button 
+              @click.stop="libraryStore.toggleFavorite(currentTrack)" 
+              class="absolute right-0 top-1/2 -translate-y-1/2 p-2.5 hover:bg-white/10 rounded-full transition-colors shrink-0"
+              :class="libraryStore.isTrackFavorite(currentTrack.ids.deezer) ? 'text-primary' : 'text-white/40 hover:text-white'"
+            >
+              <svg v-if="libraryStore.isTrackFavorite(currentTrack.ids.deezer)" xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            </button>
+          </div>
+          <p class="text-sm text-white/30 mt-2 truncate text-center">{{ currentTrack.album.title }}</p>
         </div>
 
         <!-- Progress Bar -->
-        <div class="w-full mt-6 flex items-center gap-3">
+        <div class="w-full mt-8 flex items-center gap-3">
           <span class="text-[11px] text-white/50 font-mono w-9 text-right">{{ formatTime(isDragging ? localProgress : store.progress) }}</span>
           <input type="range" 
                  :value="isDragging ? localProgress : store.progress" 
@@ -127,7 +141,7 @@ const seekTo = (timeMs: number) => {
         </div>
 
         <!-- Playback Controls -->
-        <div class="w-full flex justify-between items-center mt-6 px-2">
+        <div class="w-full flex justify-between items-center mt-8 px-2">
           <!-- Shuffle -->
           <button 
             @click="store.toggleShuffle"
@@ -143,7 +157,7 @@ const seekTo = (timeMs: number) => {
           </button>
 
           <!-- Play/Pause -->
-          <button @click="store.togglePlay" class="p-4 bg-white text-black rounded-full hover:scale-105 transition-transform shadow-xl">
+          <button @click="store.togglePlay" class="p-5 bg-white text-black rounded-full hover:scale-105 transition-transform shadow-xl">
             <svg v-if="!store.isPlaying" xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
           </button>
@@ -167,7 +181,7 @@ const seekTo = (timeMs: number) => {
       </div>
 
       <!-- Right Column: Lyrics (centered) -->
-      <div class="flex-1 flex flex-col items-center justify-center relative min-h-0 h-full overflow-hidden max-w-xl">
+      <div class="flex-1 flex flex-col items-center justify-center relative min-h-0 h-full overflow-hidden max-w-2xl">
         <!-- Loading State -->
         <div v-if="store.isLoadingLyrics" class="flex flex-col items-center gap-3">
           <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white/40"></div>
@@ -183,7 +197,7 @@ const seekTo = (timeMs: number) => {
         <div v-else ref="lyricsList" class="w-full h-full overflow-y-auto scrollbar-hide py-[40vh] px-4 space-y-2 select-none">
           <div v-for="(line, index) in lyrics" 
                :key="index"
-               class="lyric-line py-4 px-6 rounded-2xl transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] cursor-pointer hover:bg-white/5 text-center group/line"
+               class="lyric-line py-4 px-6 rounded-2xl transition-all duration-300 ease-out cursor-pointer hover:bg-white/5 text-center group/line"
                :class="{
                  'text-white scale-110 opacity-100 blur-none font-bold py-6': index === currentIndex,
                  'text-white/30 opacity-40 blur-[1px] font-semibold scale-95': index !== currentIndex,
@@ -191,7 +205,7 @@ const seekTo = (timeMs: number) => {
                  '-translate-y-4': index < currentIndex
                }"
                @click="seekTo(line.timeMs)">
-            <p class="text-2xl md:text-3xl lg:text-4xl leading-relaxed transition-all duration-700"
+            <p class="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-relaxed transition-all duration-300"
                :class="{ 'drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]': index === currentIndex }">
               {{ line.text }}
             </p>
