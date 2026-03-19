@@ -118,7 +118,7 @@ export const usePlaybackStore = defineStore('playback', {
             this.progress = state.position_ms / 1000;
             this.isPlaying = state.is_playing;
             this.duration = (this.currentTrack.duration_ms || 0) / 1000;
-            
+
             // Re-attach listeners in service
             const service = PlaybackService.getInstance();
             service.reconnect(
@@ -255,7 +255,7 @@ export const usePlaybackStore = defineStore('playback', {
     next() {
       this.resetProgress();
       if (this.repeatMode === 'one') {
-        this.seek(0);
+        PlaybackService.getInstance().resetTrackId();
         this.startPlayback();
         return;
       }
@@ -369,10 +369,10 @@ export const usePlaybackStore = defineStore('playback', {
 
     removeFromQueue(originalIndex: number) {
       if (originalIndex === this.currentIndex) return; // Don't remove currently playing
-      
+
       const track = this.queue[originalIndex];
       this.queue.splice(originalIndex, 1);
-      
+
       // Fix currentIndex if needed
       if (originalIndex < this.currentIndex) {
         this.currentIndex--;
@@ -396,7 +396,7 @@ export const usePlaybackStore = defineStore('playback', {
     moveUp(originalIndex: number) {
       if (this.isShuffle) return; // Reordering in shuffle mode is complex, disable for now
       if (originalIndex <= 0) return;
-      
+
       const targetIndex = originalIndex - 1;
       // Don't swap with current track
       if (originalIndex === this.currentIndex || targetIndex === this.currentIndex) return;
@@ -409,7 +409,7 @@ export const usePlaybackStore = defineStore('playback', {
     moveDown(originalIndex: number) {
       if (this.isShuffle) return;
       if (originalIndex >= this.queue.length - 1) return;
-      
+
       const targetIndex = originalIndex + 1;
       if (originalIndex === this.currentIndex || targetIndex === this.currentIndex) return;
 
@@ -426,6 +426,7 @@ export const usePlaybackStore = defineStore('playback', {
 
     onTrackEnd() {
       if (this.repeatMode === 'one') {
+        PlaybackService.getInstance().resetTrackId();
         this.startPlayback();
       } else {
         this.next();
@@ -435,7 +436,7 @@ export const usePlaybackStore = defineStore('playback', {
     async fetchRadio(trackId: string) {
       try {
         const relatedTracks = await SearchService.getTrackRadio(trackId);
-        
+
         // Race condition check: Only update if the track we're playing is still the one
         // we requested the radio for.
         if (this.currentTrack?.ids.deezer !== trackId) return;

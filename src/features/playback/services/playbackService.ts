@@ -144,6 +144,10 @@ export class PlaybackService {
     }
   }
 
+  resetTrackId() {
+    this._currentTrackId = null;
+  }
+
   async pause() {
     try {
       await invoke('audio_pause_native');

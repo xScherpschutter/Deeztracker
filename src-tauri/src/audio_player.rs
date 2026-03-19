@@ -1,15 +1,15 @@
 use rodio::{OutputStream, Sink};
 use std::io::{Read, Result as IoResult, Seek, SeekFrom};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Sender};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Mutex;
-use std::sync::Arc;
 
-use crate::RusteerState;
 use crate::rusteer::ReadAndSeekAsync;
+use crate::RusteerState;
 
 pub struct SyncStreamReader {
     pub inner: Box<dyn ReadAndSeekAsync + Send + Sync + Unpin>,
@@ -59,17 +59,20 @@ pub struct AudioPlayerState {
     pub current_track_id: Mutex<Option<String>>,
     pub current_offset_ms: Arc<AtomicU64>,
     pub is_playing: Arc<AtomicBool>,
+    pub sink_empty: Arc<AtomicBool>,
 }
 
 impl AudioPlayerState {
     pub fn new(app_handle: AppHandle) -> Self {
         let (tx, rx) = channel::<AudioCommand>();
-        
+
         let current_offset_ms = Arc::new(AtomicU64::new(0));
         let is_playing = Arc::new(AtomicBool::new(false));
+        let sink_empty = Arc::new(AtomicBool::new(true));
 
         let offset_clone = current_offset_ms.clone();
         let playing_clone = is_playing.clone();
+        let empty_clone = sink_empty.clone();
 
         thread::spawn(move || {
             let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -79,58 +82,59 @@ impl AudioPlayerState {
 
             loop {
                 match rx.recv_timeout(Duration::from_millis(200)) {
-                    Ok(cmd) => {
-                        match cmd {
-                            AudioCommand::Play(reader, offset, _id) => {
-                                current_offset_sec = 0.0;
-                                let decoder_res = rodio::Decoder::new(reader);
-                                match decoder_res {
-                                    Ok(decoder) => {
-                                        sink.stop();
-                                        sink.set_volume(global_volume);
-                                        sink.append(decoder);
-                                        if offset > 0.01 {
-                                            let _ = sink.try_seek(Duration::from_secs_f64(offset));
-                                        }
-                                        sink.play();
-                                        playing_clone.store(true, Ordering::SeqCst);
-                                        let _ = app_handle.emit("playback_progress_native", offset);
+                    Ok(cmd) => match cmd {
+                        AudioCommand::Play(reader, offset, _id) => {
+                            empty_clone.store(false, Ordering::SeqCst);
+                            current_offset_sec = 0.0;
+                            let decoder_res = rodio::Decoder::new(reader);
+                            match decoder_res {
+                                Ok(decoder) => {
+                                    sink.stop();
+                                    sink.set_volume(global_volume);
+                                    sink.append(decoder);
+                                    if offset > 0.01 {
+                                        let _ = sink.try_seek(Duration::from_secs_f64(offset));
                                     }
-                                    Err(_) => {}
-                                }
-                            }
-                            AudioCommand::Seek(offset) => {
-                                let old_vol = sink.volume();
-                                sink.set_volume(0.0);
-                                if sink.try_seek(Duration::from_secs_f64(offset)).is_ok() {
+                                    sink.play();
+                                    playing_clone.store(true, Ordering::SeqCst);
                                     let _ = app_handle.emit("playback_progress_native", offset);
                                 }
-                                thread::sleep(Duration::from_millis(10));
-                                sink.set_volume(old_vol);
-                            }
-                            AudioCommand::Pause => {
-                                sink.pause();
-                                playing_clone.store(false, Ordering::SeqCst);
-                            }
-                            AudioCommand::Resume => {
-                                sink.play();
-                                playing_clone.store(true, Ordering::SeqCst);
-                            }
-                            AudioCommand::Stop => {
-                                sink.stop();
-                                current_offset_sec = -1.0;
-                                playing_clone.store(false, Ordering::SeqCst);
-                                offset_clone.store(0, Ordering::SeqCst);
-                            }
-                            AudioCommand::SetVolume(v) => {
-                                global_volume = v;
-                                sink.set_volume(v);
+                                Err(_) => {}
                             }
                         }
-                    }
+                        AudioCommand::Seek(offset) => {
+                            let old_vol = sink.volume();
+                            sink.set_volume(0.0);
+                            if sink.try_seek(Duration::from_secs_f64(offset)).is_ok() {
+                                let _ = app_handle.emit("playback_progress_native", offset);
+                            }
+                            thread::sleep(Duration::from_millis(10));
+                            sink.set_volume(old_vol);
+                        }
+                        AudioCommand::Pause => {
+                            sink.pause();
+                            playing_clone.store(false, Ordering::SeqCst);
+                        }
+                        AudioCommand::Resume => {
+                            sink.play();
+                            playing_clone.store(true, Ordering::SeqCst);
+                        }
+                        AudioCommand::Stop => {
+                            sink.stop();
+                            empty_clone.store(true, Ordering::SeqCst);
+                            current_offset_sec = -1.0;
+                            playing_clone.store(false, Ordering::SeqCst);
+                            offset_clone.store(0, Ordering::SeqCst);
+                        }
+                        AudioCommand::SetVolume(v) => {
+                            global_volume = v;
+                            sink.set_volume(v);
+                        }
+                    },
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                         if !sink.is_paused() {
                             if sink.empty() {
+                                empty_clone.store(true, Ordering::SeqCst);
                                 if current_offset_sec >= 0.0 {
                                     let _ = app_handle.emit("playback_ended_native", ());
                                     current_offset_sec = -1.0;
@@ -153,12 +157,13 @@ impl AudioPlayerState {
             }
         });
 
-        Self { 
-            tx, 
+        Self {
+            tx,
             request_count: AtomicU64::new(0),
             current_track_id: Mutex::new(None),
             current_offset_ms,
             is_playing,
+            sink_empty,
         }
     }
 }
@@ -188,7 +193,8 @@ pub async fn audio_play_native(
     // 1. FAST PATH: If same track, just Seek
     {
         let mut current_id = player.current_track_id.lock().unwrap();
-        if Some(track_id.clone()) == *current_id {
+        let is_empty = player.sink_empty.load(Ordering::SeqCst);
+        if Some(track_id.clone()) == *current_id && !is_empty {
             let _ = player.tx.send(AudioCommand::Seek(start_sec));
             return Ok(());
         }
@@ -214,7 +220,9 @@ pub async fn audio_play_native(
     };
 
     if player.request_count.load(Ordering::SeqCst) == my_request_id {
-        let _ = player.tx.send(AudioCommand::Play(Box::new(reader), start_sec, track_id));
+        let _ = player
+            .tx
+            .send(AudioCommand::Play(Box::new(reader), start_sec, track_id));
         Ok(())
     } else {
         Err("Request superseded".to_string())
@@ -228,7 +236,10 @@ pub async fn audio_preload_native(
 ) -> Result<(), String> {
     let rc = rusteer_state.inner().0.lock().unwrap().clone();
     let rusteer = rc.ok_or("Rusteer not initialized".to_string())?;
-    let _ = rusteer.preload_track(&track_id).await.map_err(|e| e.to_string())?;
+    let _ = rusteer
+        .preload_track(&track_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
