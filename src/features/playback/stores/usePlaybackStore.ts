@@ -240,6 +240,7 @@ export const usePlaybackStore = defineStore('playback', {
         service.pause();
       } else {
         if (this.currentIndex === -1 && this.queue.length > 0) {
+          this.resetProgress();
           this.currentIndex = 0;
           this.startPlayback();
         } else {
@@ -250,6 +251,12 @@ export const usePlaybackStore = defineStore('playback', {
           }
         }
       }
+    },
+
+    playFromQueue(index: number) {
+      this.resetProgress();
+      this.currentIndex = index;
+      this.startPlayback();
     },
 
     next() {
@@ -426,6 +433,7 @@ export const usePlaybackStore = defineStore('playback', {
 
     onTrackEnd() {
       if (this.repeatMode === 'one') {
+        this.resetProgress();
         PlaybackService.getInstance().resetTrackId();
         this.startPlayback();
       } else {

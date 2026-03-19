@@ -48,8 +48,7 @@ const historyQueue = computed(() => {
 });
 
 const playFromQueue = (originalIndex: number) => {
-  playbackStore.currentIndex = originalIndex;
-  playbackStore.startPlayback();
+  playbackStore.playFromQueue(originalIndex);
 };
 
 const clearQueue = () => {
