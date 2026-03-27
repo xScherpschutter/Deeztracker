@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { SearchService } from '../services/searchService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
+import { useDownloadStore } from '../../library/stores/useDownloadStore';
 import { handleDragStart } from "../../../utils/drag";
 import type { Album, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
@@ -17,6 +18,7 @@ const route = useRoute();
 const router = useRouter();
 const playbackStore = usePlaybackStore();
 const libraryStore = useLibraryStore();
+const downloadStore = useDownloadStore();
 const album = ref<Album | null>(null);
 const isLoading = ref(true);
 
@@ -53,6 +55,12 @@ const playTrack = (track: any) => {
 const playAlbum = () => {
   if (album.value && album.value.tracks.length > 0) {
     playTrack(album.value.tracks[0]);
+  }
+};
+
+const downloadAlbum = () => {
+  if (album.value?.ids.deezer) {
+    downloadStore.downloadAlbum(album.value.ids.deezer);
   }
 };
 
@@ -110,6 +118,21 @@ onMounted(async () => {
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-black fill-current ml-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </button>
+
+        <button 
+          @click="downloadAlbum"
+          class="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all font-bold text-sm"
+          :disabled="!!downloadStore.batchProgress"
+        >
+          <template v-if="downloadStore.batchProgress">
+            <div class="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            <span>{{ downloadStore.batchProgress.current }} / {{ downloadStore.batchProgress.total }}</span>
+          </template>
+          <template v-else>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>{{ t('playback.download_all') }}</span>
+          </template>
+        </button>
       </div>
 
       <!-- Tracks Table -->
@@ -148,7 +171,22 @@ onMounted(async () => {
               </td>
               <td class="py-3 pr-4">
                 <div class="flex items-center justify-end gap-3">
-                  <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" :class="{ 'opacity-100': downloadStore.isDownloaded(track.ids.deezer) || downloadStore.isDownloading(track.ids.deezer) }">
+                    <!-- Download Status / Action -->
+                    <button 
+                      v-if="!downloadStore.isDownloaded(track.ids.deezer)"
+                      @click.stop="downloadStore.downloadTrack(track.ids.deezer!)" 
+                      class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
+                      :disabled="downloadStore.isDownloading(track.ids.deezer)"
+                      :title="t('playback.download')"
+                    >
+                      <div v-if="downloadStore.isDownloading(track.ids.deezer)" class="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <div v-else class="p-1.5 text-primary" :title="t('playback.downloaded')">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+
                     <button 
                       @click.stop="playbackStore.addToQueue({ ...track, album: { ...album } } as unknown as Track)" 
                       class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"

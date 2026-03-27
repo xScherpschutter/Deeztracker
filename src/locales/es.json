@@ -82,7 +82,13 @@
     "added_to_queue": "añadido a la cola",
     "remove_from_queue": "Eliminar de la cola",
     "move_up": "Subir",
-    "move_down": "Bajar"
+    "move_down": "Bajar",
+    "download": "Descargar",
+    "download_all": "Descargar todo",
+    "downloading": "Descargando...",
+    "downloaded": "Descargado",
+    "download_error": "Error al descargar",
+    "cancel_downloads": "Cancelar descargas"
   },
   "player": {
     "lyrics": "Letras",

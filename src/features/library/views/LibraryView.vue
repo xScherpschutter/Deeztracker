@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useLibraryStore } from '../stores/useLibraryStore';
+import { useDownloadStore } from '../stores/useDownloadStore';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -13,6 +14,7 @@ import ConfirmModal from '../../../components/ConfirmModal.vue';
 import PlaylistCover from '../components/PlaylistCover.vue';
 
 const libraryStore = useLibraryStore();
+const downloadStore = useDownloadStore();
 const playbackStore = usePlaybackStore();
 const router = useRouter();
 const { t } = useI18n();
@@ -243,7 +245,22 @@ const cancelDeletePlaylist = () => {
                 </td>
                 <td class="py-3 pr-4">
                   <div class="flex items-center justify-end gap-3">
-                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" :class="{ 'opacity-100': downloadStore.isDownloaded(track.ids.deezer) || downloadStore.isDownloading(track.ids.deezer) }">
+                      <!-- Download Status / Action -->
+                      <button 
+                        v-if="!downloadStore.isDownloaded(track.ids.deezer)"
+                        @click.stop="downloadStore.downloadTrack(track.ids.deezer!)" 
+                        class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
+                        :disabled="downloadStore.isDownloading(track.ids.deezer)"
+                        :title="t('playback.download')"
+                      >
+                        <div v-if="downloadStore.isDownloading(track.ids.deezer)" class="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div v-else class="p-1.5 text-primary" :title="t('playback.downloaded')">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+
                       <!-- Add to Queue -->
                       <button 
                         @click.stop="playbackStore.addToQueue(track)" 

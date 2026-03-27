@@ -81,7 +81,13 @@
     "already_in_queue": "is already in the queue",
     "remove_from_queue": "Remove from queue",
     "move_up": "Move up",
-    "move_down": "Move down"
+    "move_down": "Move down",
+    "download": "Download",
+    "download_all": "Download all",
+    "downloading": "Downloading...",
+    "downloaded": "Downloaded",
+    "download_error": "Download error",
+    "cancel_downloads": "Cancel downloads"
   },
   "player": {
     "lyrics": "Lyrics",
