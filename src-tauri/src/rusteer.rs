@@ -8,13 +8,23 @@ use std::io::{Result as IoResult, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tokio::sync::Notify;
+use tokio::sync::{Notify, Semaphore};
+use tokio_util::sync::CancellationToken;
+use tauri::{AppHandle, Emitter};
 
 use crate::api::{DeezerApi, GatewayApi};
 use crate::crypto;
 use crate::error::{DeezerError, Result};
 use crate::models::{Album, Artist, Playlist, Track};
 use crate::tagging::{self, AudioMetadata};
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub track_id: String,
+    pub status: String, // "pending", "downloading", "completed", "error"
+    pub error: Option<String>,
+}
 
 /// Audio quality options for downloads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -54,8 +64,9 @@ impl DownloadQuality {
 }
 
 /// Result of a single track download.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DownloadResult {
+    pub track_id: String,
     pub path: PathBuf,
     pub quality: DownloadQuality,
     pub size: u64,
@@ -122,6 +133,16 @@ pub struct Rusteer {
     embed_tags: bool,
     output_dir: PathBuf,
     stream_cache: Arc<Mutex<Vec<StreamCache>>>,
+    pub download_semaphore: Arc<Semaphore>,
+    pub cancel_token: CancellationToken,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchProgress {
+    pub total: usize,
+    pub current: usize,
+    pub failed: usize,
 }
 
 impl Rusteer {
@@ -136,7 +157,118 @@ impl Rusteer {
             embed_tags: true,
             output_dir: PathBuf::from("downloads"),
             stream_cache: Arc::new(Mutex::new(Vec::with_capacity(5))),
+            download_semaphore: Arc::new(Semaphore::new(4)),
+            cancel_token: CancellationToken::new(),
         })
+    }
+
+    pub async fn download_album_with_events(
+        &self,
+        album_id: &str,
+        output_dir: &Path,
+        app: &AppHandle,
+    ) -> Result<BatchDownloadResult> {
+        let album = self.public_api.get_album(album_id).await?;
+        let album_dir = output_dir.join(format!(
+            "{} - {}",
+            sanitize_filename(&album.artists_string(", ")),
+            sanitize_filename(&album.title)
+        ));
+        fs::create_dir_all(&album_dir)?;
+
+        let mut track_ids = Vec::new();
+        for track in &album.tracks {
+            if let Some(track_id) = &track.ids.deezer {
+                track_ids.push(track_id.clone());
+            }
+        }
+
+        self.download_batch_with_events(&track_ids, &album_dir, app).await
+    }
+
+    pub async fn download_playlist_with_events(
+        &self,
+        playlist_id: &str,
+        output_dir: &Path,
+        app: &AppHandle,
+    ) -> Result<BatchDownloadResult> {
+        let playlist = self.public_api.get_playlist(playlist_id).await?;
+        let playlist_dir = output_dir.join(format!("Playlist - {}", sanitize_filename(&playlist.title)));
+        fs::create_dir_all(&playlist_dir)?;
+
+        let mut track_ids = Vec::new();
+        for track in &playlist.tracks {
+            if let Some(track_id) = &track.ids.deezer {
+                track_ids.push(track_id.clone());
+            }
+        }
+
+        self.download_batch_with_events(&track_ids, &playlist_dir, app).await
+    }
+
+    async fn download_batch_with_events(
+        &self,
+        track_ids: &[String],
+        output_dir: &Path,
+        app: &AppHandle,
+    ) -> Result<BatchDownloadResult> {
+        let total = track_ids.len();
+        let current = Arc::new(Mutex::new(0));
+        let failed = Arc::new(Mutex::new(0));
+        let results = Arc::new(Mutex::new(BatchDownloadResult {
+            directory: output_dir.to_path_buf(),
+            successful: Vec::new(),
+            failed: Vec::new(),
+        }));
+
+        let mut handles = Vec::new();
+        for tid in track_ids {
+            let self_clone = self.clone();
+            let app_clone = app.clone();
+            let output_dir_clone = output_dir.to_path_buf();
+            let tid_clone = tid.clone();
+            let current_clone = current.clone();
+            let failed_clone = failed.clone();
+            let results_clone = results.clone();
+
+            let handle = tokio::spawn(async move {
+                if self_clone.cancel_token.is_cancelled() {
+                    return;
+                }
+                match self_clone.download_track_with_events(&tid_clone, &output_dir_clone, &app_clone).await {
+                    Ok(dr) => {
+                        let mut res = results_clone.lock().unwrap();
+                        res.successful.push(dr);
+                    }
+                    Err(e) => {
+                        let mut f_count = failed_clone.lock().unwrap();
+                        *f_count += 1;
+                        let mut res = results_clone.lock().unwrap();
+                        res.failed.push((tid_clone, e.to_string()));
+                    }
+                }
+
+                let mut c_count = current_clone.lock().unwrap();
+                *c_count += 1;
+
+                app_clone.emit("batch-progress", BatchProgress {
+                    total,
+                    current: *c_count,
+                    failed: *failed_clone.lock().unwrap(),
+                }).unwrap_or_default();
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            let _ = handle.await;
+        }
+
+        let mut final_results = results.lock().unwrap().clone();
+        if self.cancel_token.is_cancelled() {
+            final_results.failed.push(("Batch".to_string(), "Cancelled".to_string()));
+        }
+        Ok(final_results)
     }
 
     pub fn set_quality(&mut self, quality: DownloadQuality) {
@@ -148,8 +280,51 @@ impl Rusteer {
     pub fn output_dir(&self) -> &Path {
         &self.output_dir
     }
+    pub fn set_output_dir(&mut self, path: PathBuf) {
+        self.output_dir = path;
+    }
     pub fn has_premium(&self) -> bool {
         self.gateway_api.has_license_token()
+    }
+
+    pub async fn download_track_with_events(
+        &self,
+        track_id: &str,
+        output_dir: &Path,
+        app: &AppHandle,
+    ) -> Result<DownloadResult> {
+        let _permit = self.download_semaphore.acquire().await.map_err(|_| {
+            DeezerError::ApiError("Semaphore closed".to_string())
+        })?;
+
+        if self.cancel_token.is_cancelled() {
+            return Err(DeezerError::ApiError("Download cancelled".to_string()));
+        }
+
+        app.emit("download-progress", DownloadProgress {
+            track_id: track_id.to_string(),
+            status: "downloading".to_string(),
+            error: None,
+        }).unwrap_or_default();
+
+        match self.download_track_to(track_id, output_dir).await {
+            Ok(res) => {
+                app.emit("download-progress", DownloadProgress {
+                    track_id: track_id.to_string(),
+                    status: "completed".to_string(),
+                    error: None,
+                }).unwrap_or_default();
+                Ok(res)
+            }
+            Err(e) => {
+                app.emit("download-progress", DownloadProgress {
+                    track_id: track_id.to_string(),
+                    status: "error".to_string(),
+                    error: Some(e.to_string()),
+                }).unwrap_or_default();
+                Err(e)
+            }
+        }
     }
 
     pub async fn preload_track(&self, track_id: &str) -> Result<()> {
@@ -457,6 +632,7 @@ impl Rusteer {
             tagging::write_metadata(&output_path, &metadata)?;
         }
         Ok(DownloadResult {
+            track_id: track_id.to_string(),
             path: output_path,
             quality,
             size: fs::metadata(output_dir.join(format!(
@@ -583,6 +759,7 @@ fn sanitize_filename(name: &str) -> String {
         .trim()
         .to_string()
 }
+#[derive(Debug, Clone)]
 pub struct BatchDownloadResult {
     pub directory: PathBuf,
     pub successful: Vec<DownloadResult>,

@@ -8,6 +8,7 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
 
+use crate::database::{self, DbState};
 use crate::rusteer::ReadAndSeekAsync;
 use crate::RusteerState;
 
@@ -189,6 +190,7 @@ pub async fn audio_play_native(
     start_sec: f64,
     player: State<'_, AudioPlayerState>,
     rusteer_state: State<'_, RusteerState>,
+    db_state: State<'_, DbState>,
 ) -> Result<(), String> {
     // 1. FAST PATH: If same track, just Seek
     {
@@ -205,10 +207,25 @@ pub async fn audio_play_native(
     let my_request_id = player.request_count.fetch_add(1, Ordering::SeqCst) + 1;
     let _ = player.tx.send(AudioCommand::Stop);
 
+    if let Ok(Some(local_path)) = database::get_download_path(track_id.clone(), db_state.clone()).await {
+        let path = std::path::Path::new(&local_path);
+        if path.exists() {
+            if let Ok(file) = std::fs::File::open(path) {
+                if player.request_count.load(Ordering::SeqCst) == my_request_id {
+                    let _ = player.tx.send(AudioCommand::Play(Box::new(std::io::BufReader::new(file)), start_sec, track_id));
+                    return Ok(());
+                } else {
+                    return Err("Request superseded".to_string());
+                }
+            }
+        } else {
+            let _ = database::remove_download_record(track_id.clone(), db_state).await;
+        }
+    }
+
     let rc = rusteer_state.inner().0.lock().unwrap().clone();
     let rusteer = rc.ok_or("Rusteer not initialized".to_string())?;
 
-    // We always stream from 0 because we now have a seekable RAM buffer
     let stream_res = rusteer
         .stream_track(&track_id, 0, None)
         .await
@@ -233,7 +250,16 @@ pub async fn audio_play_native(
 pub async fn audio_preload_native(
     track_id: String,
     rusteer_state: State<'_, RusteerState>,
+    db_state: State<'_, DbState>,
 ) -> Result<(), String> {
+    // 1. Check if it's already local
+    if let Ok(Some(local_path)) = database::get_download_path(track_id.clone(), db_state).await {
+        if std::path::Path::new(&local_path).exists() {
+            return Ok(()); // Already local, no need to preload stream
+        }
+    }
+
+    // 2. Otherwise preload from stream
     let rc = rusteer_state.inner().0.lock().unwrap().clone();
     let rusteer = rc.ok_or("Rusteer not initialized".to_string())?;
     let _ = rusteer

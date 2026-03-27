@@ -295,6 +295,108 @@ async fn update_tray_menu(
 }
 
 #[tauri::command]
+async fn get_downloads_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let mut path = app.path().audio_dir().map_err(|e| e.to_string())?;
+    path.push("Deeztracker");
+    if !path.exists() {
+        let _ = std::fs::create_dir_all(&path);
+    }
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn download_track_node(
+    track_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, RusteerState>,
+    db: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let rusteer = get_rusteer(&state)?;
+    let output_dir = get_downloads_dir(app.clone()).await?;
+    let output_path = std::path::PathBuf::from(output_dir);
+
+    let res = rusteer.download_track_with_events(&track_id, &output_path, &app).await.map_err(|e| e.to_string())?;
+    
+    // Save to DB
+    let track = rusteer.get_track(&track_id).await.map_err(|e| e.to_string())?;
+    let metadata = serde_json::to_string(&track).unwrap();
+    database::add_download_record(
+        track_id,
+        res.path.to_string_lossy().to_string(),
+        res.quality.format().to_string(),
+        metadata,
+        db
+    ).await?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn download_album_node(
+    album_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, RusteerState>,
+    db: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let rusteer = get_rusteer(&state)?;
+    let output_dir = get_downloads_dir(app.clone()).await?;
+    let output_path = std::path::PathBuf::from(output_dir);
+
+    let res = rusteer.download_album_with_events(&album_id, &output_path, &app).await.map_err(|e| e.to_string())?;
+    
+    for success in res.successful {
+        let track = rusteer.get_track(&success.track_id).await.map_err(|e| e.to_string())?;
+        let metadata = serde_json::to_string(&track).unwrap();
+        database::add_download_record(
+            success.track_id.clone(),
+            success.path.to_string_lossy().to_string(),
+            success.quality.format().to_string(),
+            metadata,
+            db.clone()
+        ).await?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn download_playlist_node(
+    playlist_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, RusteerState>,
+    db: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let rusteer = get_rusteer(&state)?;
+    let output_dir = get_downloads_dir(app.clone()).await?;
+    let output_path = std::path::PathBuf::from(output_dir);
+
+    let res = rusteer.download_playlist_with_events(&playlist_id, &output_path, &app).await.map_err(|e| e.to_string())?;
+    
+    for success in res.successful {
+        let track = rusteer.get_track(&success.track_id).await.map_err(|e| e.to_string())?;
+        let metadata = serde_json::to_string(&track).unwrap();
+        database::add_download_record(
+            success.track_id.clone(),
+            success.path.to_string_lossy().to_string(),
+            success.quality.format().to_string(),
+            metadata,
+            db.clone()
+        ).await?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn cancel_all_downloads(state: tauri::State<'_, RusteerState>) -> Result<(), String> {
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(rusteer) = guard.as_ref() {
+        rusteer.cancel_token.cancel();
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_charts(state: tauri::State<'_, RusteerState>) -> Result<serde_json::Value, String> {
     let _ = get_rusteer(&state)?;
     let api = DeezerApi::new();
@@ -527,6 +629,15 @@ pub fn run() {
             database::add_track_to_playlist,
             database::remove_track_from_playlist,
             database::get_playlist_tracks,
+            database::get_downloads,
+            database::is_downloaded,
+            database::remove_download_record,
+            database::add_download_record,
+            get_downloads_dir,
+            download_track_node,
+            download_album_node,
+            download_playlist_node,
+            cancel_all_downloads,
             audio_player::audio_get_state,
             audio_player::audio_play_native,
             audio_player::audio_preload_native,

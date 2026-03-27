@@ -42,7 +42,87 @@ pub fn init(app_data_dir: PathBuf) -> Result<Connection, String> {
         [],
     ).map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS downloads (
+            track_id TEXT PRIMARY KEY,
+            local_path TEXT NOT NULL,
+            quality TEXT NOT NULL,
+            metadata TEXT NOT NULL,
+            downloaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).map_err(|e| e.to_string())?;
+
     Ok(conn)
+}
+
+#[tauri::command]
+pub async fn add_download_record(
+    track_id: String,
+    local_path: String,
+    quality: String,
+    metadata: String,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO downloads (track_id, local_path, quality, metadata) VALUES (?, ?, ?, ?)",
+        params![track_id, local_path, quality, metadata],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_downloads(state: tauri::State<'_, DbState>) -> Result<Vec<Track>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT metadata FROM downloads ORDER BY downloaded_at DESC")
+        .map_err(|e| e.to_string())?;
+    
+    let tracks_iter = stmt.query_map([], |row| {
+        let metadata: String = row.get(0)?;
+        let track: Track = serde_json::from_str(&metadata).unwrap();
+        Ok(track)
+    }).map_err(|e| e.to_string())?;
+
+    let mut tracks = Vec::new();
+    for track in tracks_iter {
+        tracks.push(track.map_err(|e| e.to_string())?);
+    }
+    Ok(tracks)
+}
+
+#[tauri::command]
+pub async fn is_downloaded(track_id: String, state: tauri::State<'_, DbState>) -> Result<bool, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM downloads WHERE track_id = ?)",
+        params![track_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    Ok(exists)
+}
+
+#[tauri::command]
+pub async fn remove_download_record(track_id: String, state: tauri::State<'_, DbState>) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM downloads WHERE track_id = ?", params![track_id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_download_path(track_id: String, state: tauri::State<'_, DbState>) -> Result<Option<String>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT local_path FROM downloads WHERE track_id = ?")
+        .map_err(|e| e.to_string())?;
+    
+    let mut rows = stmt.query(params![track_id]).map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let path: String = row.get(0).map_err(|e| e.to_string())?;
+        Ok(Some(path))
+    } else {
+        Ok(None)
+    }
 }
 
 #[tauri::command]
