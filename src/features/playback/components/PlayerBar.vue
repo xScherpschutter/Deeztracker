@@ -69,6 +69,9 @@ const openPlaylistModal = () => {
       <div class="flex items-center gap-4 group cursor-pointer" @click="showFullscreen = true">
         <div v-if="playbackStore.currentTrack" class="w-14 h-14 bg-background rounded-lg overflow-hidden flex-shrink-0 relative">
           <img :src="playbackStore.currentTrack.album.images[0]?.url" alt="Cover" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+          <div v-if="playbackStore.isBuffering" class="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
+            <div class="animate-spin rounded-full h-6 w-6 border-2 border-white/30 border-t-white"></div>
+          </div>
           <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="m15 3 6 6-6 6"/><path d="M9 21 3 15l6-6"/><path d="M21 9H9s-4 0-4 4v8"/><path d="M3 15h12s4 0 4-4V3"/></svg>
           </div>
@@ -157,11 +160,13 @@ const openPlaylistModal = () => {
           :value="isDragging ? localProgress : playbackStore.progress" 
           :max="playbackStore.duration || 0" 
           step="0.1"
+          :disabled="playbackStore.isBuffering"
           @input="onSeekInput"
           @change="onSeekChange"
           @mousedown="isDragging = true"
           @touchstart="isDragging = true"
-          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all cursor-pointer slider-progress"
+          class="flex-1 h-1 bg-white/10 rounded-full appearance-none accent-primary group-hover:h-1.5 transition-all slider-progress"
+          :class="playbackStore.isBuffering ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'"
           :style="{ '--progress': `${progressPercent}%` }"
         >
         <span class="text-[10px] text-textGray w-8 font-mono">{{ formatDuration(playbackStore.duration * 1000) }}</span>
