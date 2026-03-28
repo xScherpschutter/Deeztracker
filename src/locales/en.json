@@ -40,6 +40,7 @@
     "title": "Your Library",
     "favorites": "Favorite Songs",
     "playlists": "Playlists",
+    "downloads": "Downloads",
     "create_playlist": "Create Playlist",
     "new_playlist_name": "New playlist name",
     "new_playlist_desc": "Description (optional)",

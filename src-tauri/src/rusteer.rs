@@ -19,7 +19,6 @@ use crate::models::{Album, Artist, Playlist, Track};
 use crate::tagging::{self, AudioMetadata};
 
 #[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DownloadProgress {
     pub track_id: String,
     pub status: String, // "pending", "downloading", "completed", "error"
@@ -138,7 +137,6 @@ pub struct Rusteer {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct BatchProgress {
     pub total: usize,
     pub current: usize,
@@ -160,115 +158,6 @@ impl Rusteer {
             download_semaphore: Arc::new(Semaphore::new(4)),
             cancel_token: CancellationToken::new(),
         })
-    }
-
-    pub async fn download_album_with_events(
-        &self,
-        album_id: &str,
-        output_dir: &Path,
-        app: &AppHandle,
-    ) -> Result<BatchDownloadResult> {
-        let album = self.public_api.get_album(album_id).await?;
-        let album_dir = output_dir.join(format!(
-            "{} - {}",
-            sanitize_filename(&album.artists_string(", ")),
-            sanitize_filename(&album.title)
-        ));
-        fs::create_dir_all(&album_dir)?;
-
-        let mut track_ids = Vec::new();
-        for track in &album.tracks {
-            if let Some(track_id) = &track.ids.deezer {
-                track_ids.push(track_id.clone());
-            }
-        }
-
-        self.download_batch_with_events(&track_ids, &album_dir, app).await
-    }
-
-    pub async fn download_playlist_with_events(
-        &self,
-        playlist_id: &str,
-        output_dir: &Path,
-        app: &AppHandle,
-    ) -> Result<BatchDownloadResult> {
-        let playlist = self.public_api.get_playlist(playlist_id).await?;
-        let playlist_dir = output_dir.join(format!("Playlist - {}", sanitize_filename(&playlist.title)));
-        fs::create_dir_all(&playlist_dir)?;
-
-        let mut track_ids = Vec::new();
-        for track in &playlist.tracks {
-            if let Some(track_id) = &track.ids.deezer {
-                track_ids.push(track_id.clone());
-            }
-        }
-
-        self.download_batch_with_events(&track_ids, &playlist_dir, app).await
-    }
-
-    async fn download_batch_with_events(
-        &self,
-        track_ids: &[String],
-        output_dir: &Path,
-        app: &AppHandle,
-    ) -> Result<BatchDownloadResult> {
-        let total = track_ids.len();
-        let current = Arc::new(Mutex::new(0));
-        let failed = Arc::new(Mutex::new(0));
-        let results = Arc::new(Mutex::new(BatchDownloadResult {
-            directory: output_dir.to_path_buf(),
-            successful: Vec::new(),
-            failed: Vec::new(),
-        }));
-
-        let mut handles = Vec::new();
-        for tid in track_ids {
-            let self_clone = self.clone();
-            let app_clone = app.clone();
-            let output_dir_clone = output_dir.to_path_buf();
-            let tid_clone = tid.clone();
-            let current_clone = current.clone();
-            let failed_clone = failed.clone();
-            let results_clone = results.clone();
-
-            let handle = tokio::spawn(async move {
-                if self_clone.cancel_token.is_cancelled() {
-                    return;
-                }
-                match self_clone.download_track_with_events(&tid_clone, &output_dir_clone, &app_clone).await {
-                    Ok(dr) => {
-                        let mut res = results_clone.lock().unwrap();
-                        res.successful.push(dr);
-                    }
-                    Err(e) => {
-                        let mut f_count = failed_clone.lock().unwrap();
-                        *f_count += 1;
-                        let mut res = results_clone.lock().unwrap();
-                        res.failed.push((tid_clone, e.to_string()));
-                    }
-                }
-
-                let mut c_count = current_clone.lock().unwrap();
-                *c_count += 1;
-
-                app_clone.emit("batch-progress", BatchProgress {
-                    total,
-                    current: *c_count,
-                    failed: *failed_clone.lock().unwrap(),
-                }).unwrap_or_default();
-            });
-            handles.push(handle);
-        }
-
-        for handle in handles {
-            let _ = handle.await;
-        }
-
-        let mut final_results = results.lock().unwrap().clone();
-        if self.cancel_token.is_cancelled() {
-            final_results.failed.push(("Batch".to_string(), "Cancelled".to_string()));
-        }
-        Ok(final_results)
     }
 
     pub fn set_quality(&mut self, quality: DownloadQuality) {
@@ -308,14 +197,7 @@ impl Rusteer {
         }).unwrap_or_default();
 
         match self.download_track_to(track_id, output_dir).await {
-            Ok(res) => {
-                app.emit("download-progress", DownloadProgress {
-                    track_id: track_id.to_string(),
-                    status: "completed".to_string(),
-                    error: None,
-                }).unwrap_or_default();
-                Ok(res)
-            }
+            Ok(res) => Ok(res),
             Err(e) => {
                 app.emit("download-progress", DownloadProgress {
                     track_id: track_id.to_string(),
@@ -646,60 +528,6 @@ impl Rusteer {
             artist,
         })
     }
-
-    pub async fn download_album_to<P: AsRef<Path>>(
-        &self,
-        album_id: &str,
-        output_dir: P,
-    ) -> Result<BatchDownloadResult> {
-        let album = self.public_api.get_album(album_id).await?;
-        let album_dir = output_dir.as_ref().join(format!(
-            "{} - {}",
-            sanitize_filename(&album.artists_string(", ")),
-            sanitize_filename(&album.title)
-        ));
-        fs::create_dir_all(&album_dir)?;
-        let mut result = BatchDownloadResult {
-            directory: album_dir.clone(),
-            successful: Vec::new(),
-            failed: Vec::new(),
-        };
-        for track in &album.tracks {
-            if let Some(track_id) = &track.ids.deezer {
-                match self.download_track_to(track_id, &album_dir).await {
-                    Ok(dr) => result.successful.push(dr),
-                    Err(e) => result.failed.push((track.title.clone(), e.to_string())),
-                }
-            }
-        }
-        Ok(result)
-    }
-
-    pub async fn download_playlist_to<P: AsRef<Path>>(
-        &self,
-        playlist_id: &str,
-        output_dir: P,
-    ) -> Result<BatchDownloadResult> {
-        let playlist = self.public_api.get_playlist(playlist_id).await?;
-        let playlist_dir = output_dir
-            .as_ref()
-            .join(format!("Playlist - {}", sanitize_filename(&playlist.title)));
-        fs::create_dir_all(&playlist_dir)?;
-        let mut result = BatchDownloadResult {
-            directory: playlist_dir.clone(),
-            successful: Vec::new(),
-            failed: Vec::new(),
-        };
-        for (_idx, track) in playlist.tracks.iter().enumerate() {
-            if let Some(track_id) = &track.ids.deezer {
-                match self.download_track_to(track_id, &playlist_dir).await {
-                    Ok(dr) => result.successful.push(dr),
-                    Err(e) => result.failed.push((track.title.clone(), e.to_string())),
-                }
-            }
-        }
-        Ok(result)
-    }
 }
 
 /// A custom stream that reads from the SharedBuffer and supports Seeking.
@@ -759,6 +587,7 @@ fn sanitize_filename(name: &str) -> String {
         .trim()
         .to_string()
 }
+
 #[derive(Debug, Clone)]
 pub struct BatchDownloadResult {
     pub directory: PathBuf,

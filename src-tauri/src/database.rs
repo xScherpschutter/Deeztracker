@@ -75,12 +75,14 @@ pub async fn add_download_record(
 #[tauri::command]
 pub async fn get_downloads(state: tauri::State<'_, DbState>) -> Result<Vec<Track>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT metadata FROM downloads ORDER BY downloaded_at DESC")
+    let mut stmt = conn.prepare("SELECT metadata, downloaded_at FROM downloads ORDER BY downloaded_at DESC")
         .map_err(|e| e.to_string())?;
     
     let tracks_iter = stmt.query_map([], |row| {
         let metadata: String = row.get(0)?;
-        let track: Track = serde_json::from_str(&metadata).unwrap();
+        let downloaded_at: String = row.get(1)?;
+        let mut track: Track = serde_json::from_str(&metadata).unwrap();
+        track.added_at = Some(downloaded_at);
         Ok(track)
     }).map_err(|e| e.to_string())?;
 
@@ -107,6 +109,35 @@ pub async fn remove_download_record(track_id: String, state: tauri::State<'_, Db
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM downloads WHERE track_id = ?", params![track_id])
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn check_downloads_integrity(state: tauri::State<'_, DbState>) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    
+    // 1. Get all downloads
+    let mut stmt = conn.prepare("SELECT track_id, local_path FROM downloads")
+        .map_err(|e| e.to_string())?;
+    
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?;
+
+    let mut to_remove = Vec::new();
+    for row in rows {
+        let (id, path) = row.map_err(|e| e.to_string())?;
+        if !std::path::Path::new(&path).exists() {
+            to_remove.push(id);
+        }
+    }
+
+    // 2. Remove missing files from DB
+    for id in to_remove {
+        conn.execute("DELETE FROM downloads WHERE track_id = ?", params![id])
+            .map_err(|e| e.to_string())?;
+    }
+
     Ok(())
 }
 

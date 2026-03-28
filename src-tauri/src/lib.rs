@@ -13,13 +13,13 @@ pub use api::{DeezerApi, GatewayApi};
 pub use database::DbState;
 pub use error::DeezerError;
 pub use models::{Album, Artist, Playlist, Track};
-pub use rusteer::{BatchDownloadResult, DownloadQuality, DownloadResult, Rusteer};
+pub use rusteer::{BatchDownloadResult, DownloadQuality, DownloadResult, Rusteer, BatchProgress, DownloadProgress};
 
 use souvlaki::{MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
 use std::sync::Arc;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 use tauri_plugin_autostart::ManagerExt;
 
 // Shared State to hold Rusteer instance
@@ -292,10 +292,11 @@ async fn update_tray_menu(
         let _ = tray.set_menu(Some(menu));
     }
     Ok(())
-}
+    }
 
-#[tauri::command]
-async fn get_downloads_dir(app: tauri::AppHandle) -> Result<String, String> {
+    #[tauri::command]
+    async fn get_downloads_dir(app: tauri::AppHandle) -> Result<String, String> {
+
     let mut path = app.path().audio_dir().map_err(|e| e.to_string())?;
     path.push("Deeztracker");
     if !path.exists() {
@@ -304,31 +305,47 @@ async fn get_downloads_dir(app: tauri::AppHandle) -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-async fn download_track_node(
+async fn internal_download_track(
+    rusteer: Rusteer,
     track_id: String,
+    output_dir: std::path::PathBuf,
     app: tauri::AppHandle,
-    state: tauri::State<'_, RusteerState>,
-    db: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    let rusteer = get_rusteer(&state)?;
-    let output_dir = get_downloads_dir(app.clone()).await?;
-    let output_path = std::path::PathBuf::from(output_dir);
-
-    let res = rusteer.download_track_with_events(&track_id, &output_path, &app).await.map_err(|e| e.to_string())?;
+    let res = rusteer.download_track_with_events(&track_id, &output_dir, &app).await.map_err(|e| e.to_string())?;
     
-    // Save to DB
     let track = rusteer.get_track(&track_id).await.map_err(|e| e.to_string())?;
     let metadata = serde_json::to_string(&track).unwrap();
+    
+    let db = app.state::<DbState>();
     database::add_download_record(
-        track_id,
+        track_id.clone(),
         res.path.to_string_lossy().to_string(),
         res.quality.format().to_string(),
         metadata,
         db
     ).await?;
 
+    // Emit completed event AFTER DB is updated
+    app.emit("download-progress", DownloadProgress {
+        track_id,
+        status: "completed".to_string(),
+        error: None,
+    }).unwrap_or_default();
+
     Ok(())
+}
+
+#[tauri::command]
+async fn download_track_node(
+    track_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, RusteerState>,
+) -> Result<(), String> {
+    let rusteer = get_rusteer(&state)?;
+    let output_dir_str = get_downloads_dir(app.clone()).await?;
+    let output_dir = std::path::PathBuf::from(output_dir_str);
+
+    internal_download_track(rusteer, track_id, output_dir, app).await
 }
 
 #[tauri::command]
@@ -336,26 +353,58 @@ async fn download_album_node(
     album_id: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, RusteerState>,
-    db: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     let rusteer = get_rusteer(&state)?;
-    let output_dir = get_downloads_dir(app.clone()).await?;
-    let output_path = std::path::PathBuf::from(output_dir);
+    let album = rusteer.get_album(&album_id).await.map_err(|e| e.to_string())?;
+    let output_dir_str = get_downloads_dir(app.clone()).await?;
+    let mut album_dir = std::path::PathBuf::from(output_dir_str);
+    
+    // Create album subdirectory
+    let safe_artist = album.artists.first().map(|a| a.name.clone()).unwrap_or_else(|| "Unknown".to_string());
+    let folder_name = format!("{} - {}", safe_artist, album.title).replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+    album_dir.push(folder_name);
+    let _ = std::fs::create_dir_all(&album_dir);
 
-    let res = rusteer.download_album_with_events(&album_id, &output_path, &app).await.map_err(|e| e.to_string())?;
-    
-    for success in res.successful {
-        let track = rusteer.get_track(&success.track_id).await.map_err(|e| e.to_string())?;
-        let metadata = serde_json::to_string(&track).unwrap();
-        database::add_download_record(
-            success.track_id.clone(),
-            success.path.to_string_lossy().to_string(),
-            success.quality.format().to_string(),
-            metadata,
-            db.clone()
-        ).await?;
+    let mut track_ids = Vec::new();
+    for track in album.tracks {
+        if let Some(tid) = track.ids.deezer {
+            track_ids.push(tid);
+        }
     }
-    
+
+    let total = track_ids.len();
+    let current = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let failed = std::sync::Arc::new(std::sync::Mutex::new(0));
+
+    for tid in track_ids {
+        let r_clone = rusteer.clone();
+        let a_clone = app.clone();
+        let dir_clone = album_dir.clone();
+        let c_clone = current.clone();
+        let f_clone = failed.clone();
+        
+        tokio::spawn(async move {
+            match internal_download_track(r_clone, tid, dir_clone, a_clone.clone()).await {
+                Ok(_) => {
+                    let mut c = c_clone.lock().unwrap();
+                    *c += 1;
+                }
+                Err(_) => {
+                    let mut f = f_clone.lock().unwrap();
+                    *f += 1;
+                    let mut c = c_clone.lock().unwrap();
+                    *c += 1;
+                }
+            }
+            
+            a_clone.emit("batch-progress", BatchProgress {
+                total,
+                current: *c_clone.lock().unwrap(),
+                failed: *f_clone.lock().unwrap(),
+            }).unwrap_or_default();
+        });
+    }
+
     Ok(())
 }
 
@@ -364,24 +413,54 @@ async fn download_playlist_node(
     playlist_id: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, RusteerState>,
-    db: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     let rusteer = get_rusteer(&state)?;
-    let output_dir = get_downloads_dir(app.clone()).await?;
-    let output_path = std::path::PathBuf::from(output_dir);
-
-    let res = rusteer.download_playlist_with_events(&playlist_id, &output_path, &app).await.map_err(|e| e.to_string())?;
+    let playlist = rusteer.get_playlist(&playlist_id).await.map_err(|e| e.to_string())?;
+    let output_dir_str = get_downloads_dir(app.clone()).await?;
+    let mut playlist_dir = std::path::PathBuf::from(output_dir_str);
     
-    for success in res.successful {
-        let track = rusteer.get_track(&success.track_id).await.map_err(|e| e.to_string())?;
-        let metadata = serde_json::to_string(&track).unwrap();
-        database::add_download_record(
-            success.track_id.clone(),
-            success.path.to_string_lossy().to_string(),
-            success.quality.format().to_string(),
-            metadata,
-            db.clone()
-        ).await?;
+    let folder_name = format!("Playlist - {}", playlist.title).replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+    playlist_dir.push(folder_name);
+    let _ = std::fs::create_dir_all(&playlist_dir);
+
+    let mut track_ids = Vec::new();
+    for track in playlist.tracks {
+        if let Some(tid) = track.ids.deezer {
+            track_ids.push(tid);
+        }
+    }
+
+    let total = track_ids.len();
+    let current = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let failed = std::sync::Arc::new(std::sync::Mutex::new(0));
+
+    for tid in track_ids {
+        let r_clone = rusteer.clone();
+        let a_clone = app.clone();
+        let dir_clone = playlist_dir.clone();
+        let c_clone = current.clone();
+        let f_clone = failed.clone();
+        
+        tokio::spawn(async move {
+            match internal_download_track(r_clone, tid, dir_clone, a_clone.clone()).await {
+                Ok(_) => {
+                    let mut c = c_clone.lock().unwrap();
+                    *c += 1;
+                }
+                Err(_) => {
+                    let mut f = f_clone.lock().unwrap();
+                    *f += 1;
+                    let mut c = c_clone.lock().unwrap();
+                    *c += 1;
+                }
+            }
+            
+            a_clone.emit("batch-progress", BatchProgress {
+                total,
+                current: *c_clone.lock().unwrap(),
+                failed: *f_clone.lock().unwrap(),
+            }).unwrap_or_default();
+        });
     }
 
     Ok(())
@@ -633,6 +712,8 @@ pub fn run() {
             database::is_downloaded,
             database::remove_download_record,
             database::add_download_record,
+            database::get_download_path,
+            database::check_downloads_integrity,
             get_downloads_dir,
             download_track_node,
             download_album_node,
