@@ -75,7 +75,7 @@ async fn get_audio_quality(state: tauri::State<'_, RusteerState>) -> Result<Stri
 }
 
 pub struct MediaState {
-    pub controls: Arc<std::sync::Mutex<MediaControls>>,
+    pub controls: Arc<std::sync::Mutex<Option<MediaControls>>>,
 }
 
 #[tauri::command]
@@ -87,16 +87,19 @@ async fn update_media_metadata(
     duration_ms: Option<u64>,
     state: tauri::State<'_, MediaState>,
 ) -> Result<(), String> {
-    let mut controls = state.controls.lock().map_err(|e| e.to_string())?;
-    controls
-        .set_metadata(MediaMetadata {
-            title: Some(&title),
-            artist: Some(&artist),
-            album: Some(&album),
-            cover_url: cover_url.as_deref(),
-            duration: duration_ms.map(|ms| std::time::Duration::from_millis(ms)),
-        })
-        .map_err(|e| format!("Failed to set media metadata: {:?}", e))
+    let mut guard = state.controls.lock().map_err(|e| e.to_string())?;
+    if let Some(controls) = guard.as_mut() {
+        controls
+            .set_metadata(MediaMetadata {
+                title: Some(&title),
+                artist: Some(&artist),
+                album: Some(&album),
+                cover_url: cover_url.as_deref(),
+                duration: duration_ms.map(|ms| std::time::Duration::from_millis(ms)),
+            })
+            .map_err(|e| format!("Failed to set media metadata: {:?}", e))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -105,19 +108,22 @@ async fn update_playback_state(
     position_ms: Option<u64>,
     state: tauri::State<'_, MediaState>,
 ) -> Result<(), String> {
-    let mut controls = state.controls.lock().map_err(|e| e.to_string())?;
-    let status = if playing {
-        MediaPlayback::Playing {
-            progress: position_ms.map(|ms| MediaPosition(std::time::Duration::from_millis(ms))),
-        }
-    } else {
-        MediaPlayback::Paused {
-            progress: position_ms.map(|ms| MediaPosition(std::time::Duration::from_millis(ms))),
-        }
-    };
-    controls
-        .set_playback(status)
-        .map_err(|e| format!("Failed to set playback state: {:?}", e))
+    let mut guard = state.controls.lock().map_err(|e| e.to_string())?;
+    if let Some(controls) = guard.as_mut() {
+        let status = if playing {
+            MediaPlayback::Playing {
+                progress: position_ms.map(|ms| MediaPosition(std::time::Duration::from_millis(ms))),
+            }
+        } else {
+            MediaPlayback::Paused {
+                progress: position_ms.map(|ms| MediaPosition(std::time::Duration::from_millis(ms))),
+            }
+        };
+        controls
+            .set_playback(status)
+            .map_err(|e| format!("Failed to set playback state: {:?}", e))?;
+    }
+    Ok(())
 }
 
 fn get_rusteer(state: &RusteerState) -> Result<Rusteer, String> {
@@ -567,45 +573,73 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // Initialize Media State (always manage it to avoid crashes in commands)
+            let media_state = MediaState {
+                controls: Arc::new(std::sync::Mutex::new(None)),
+            };
+            let media_controls_ref = media_state.controls.clone();
+            app.manage(media_state);
+
             // Initialize Media Controls (Souvlaki)
             #[cfg(not(target_os = "android"))]
             {
+                use tauri::Manager;
+                
+                let window = app.get_webview_window("main");
+                let hwnd = if let Some(_w) = window {
+                    #[cfg(target_os = "windows")]
+                    {
+                        _w.hwnd().ok().map(|h| h.0 as *mut std::ffi::c_void)
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let config = PlatformConfig {
                     dbus_name: "Deeztracker",
                     display_name: "Deeztracker",
-                    hwnd: None,
+                    hwnd,
                 };
-                let mut controls =
-                    MediaControls::new(config).expect("Failed to create media controls");
 
-                let app_handle = app.handle().clone();
-                let _ = controls.attach(move |event| {
-                    use souvlaki::MediaControlEvent;
-                    use tauri::Emitter;
-                    match event {
-                        MediaControlEvent::Play => {
-                            let _ = app_handle.emit("media-play", ());
+                match MediaControls::new(config) {
+                    Ok(mut controls) => {
+                        let app_handle = app.handle().clone();
+                        let _ = controls.attach(move |event| {
+                            use souvlaki::MediaControlEvent;
+                            use tauri::Emitter;
+                            match event {
+                                MediaControlEvent::Play => {
+                                    let _ = app_handle.emit("media-play", ());
+                                }
+                                MediaControlEvent::Pause => {
+                                    let _ = app_handle.emit("media-pause", ());
+                                }
+                                MediaControlEvent::Toggle => {
+                                    let _ = app_handle.emit("media-toggle", ());
+                                }
+                                MediaControlEvent::Next => {
+                                    let _ = app_handle.emit("media-next", ());
+                                }
+                                MediaControlEvent::Previous => {
+                                    let _ = app_handle.emit("media-prev", ());
+                                }
+                                _ => (),
+                            }
+                        });
+
+                        // Store the successfully initialized controls
+                        if let Ok(mut guard) = media_controls_ref.lock() {
+                            *guard = Some(controls);
                         }
-                        MediaControlEvent::Pause => {
-                            let _ = app_handle.emit("media-pause", ());
-                        }
-                        MediaControlEvent::Toggle => {
-                            let _ = app_handle.emit("media-toggle", ());
-                        }
-                        MediaControlEvent::Next => {
-                            let _ = app_handle.emit("media-next", ());
-                        }
-                        MediaControlEvent::Previous => {
-                            let _ = app_handle.emit("media-prev", ());
-                        }
-                        _ => (),
                     }
-                });
-
-                let media_state = MediaState {
-                    controls: Arc::new(std::sync::Mutex::new(controls)),
-                };
-                app.manage(media_state);
+                    Err(e) => {
+                        eprintln!("Failed to initialize media controls: {:?}", e);
+                    }
+                }
             }
 
             // Initialize Database
