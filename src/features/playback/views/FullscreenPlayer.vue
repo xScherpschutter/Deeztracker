@@ -197,15 +197,15 @@ const seekTo = (timeMs: number) => {
         <div v-else ref="lyricsList" class="w-full h-full overflow-y-auto scrollbar-hide py-[40vh] px-4 space-y-2 select-none">
           <div v-for="(line, index) in lyrics" 
                :key="index"
-               class="lyric-line py-4 px-6 rounded-2xl transition-all duration-300 ease-out cursor-pointer hover:bg-white/5 text-center group/line"
+               class="lyric-line py-4 px-6 rounded-2xl cursor-pointer hover:bg-white/5 text-center group/line"
                :class="{
-                 'text-white scale-110 opacity-100 blur-none font-bold py-6': index === currentIndex,
-                 'text-white/30 opacity-40 blur-[1px] font-semibold scale-95': index !== currentIndex,
+                 'text-white scale-110 opacity-100 blur-none font-bold': index === currentIndex,
+                 'text-white/30 opacity-40 font-semibold scale-95': index !== currentIndex,
                  'translate-y-4': index > currentIndex,
                  '-translate-y-4': index < currentIndex
                }"
                @click="seekTo(line.timeMs)">
-            <p class="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-relaxed transition-all duration-300"
+            <p class="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-relaxed"
                :class="{ 'drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]': index === currentIndex }">
               {{ line.text }}
             </p>
@@ -227,6 +227,13 @@ const seekTo = (timeMs: number) => {
 
 .lyric-line {
   scroll-margin: 35vh;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out, filter 0.3s ease-out;
+  will-change: transform, opacity, filter;
+  transform: translateZ(0);
+}
+
+.lyric-line p {
+  transition: filter 0.3s ease-out, transform 0.3s ease-out;
 }
 
 input[type='range']::-webkit-slider-thumb {
