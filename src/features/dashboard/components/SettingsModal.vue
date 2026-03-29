@@ -263,7 +263,7 @@ const handleLogout = () => {
           <section class="pt-2">
             <div class="flex items-center justify-between text-xs text-textGray">
               <span>Deeztracker</span>
-              <span>{{ t('settings.about.version') }} 0.1.1</span>
+              <span>{{ t('settings.about.version') }} 0.1.2</span>
             </div>
           </section>
 
