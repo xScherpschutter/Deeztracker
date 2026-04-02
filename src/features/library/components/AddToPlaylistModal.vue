@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { useI18n } from 'vue-i18n';
 import type { Track } from '../../search/models/search';
 import PlaylistCover from './PlaylistCover.vue';
+import CreatePlaylistModal from './CreatePlaylistModal.vue';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -16,12 +18,20 @@ const libraryStore = useLibraryStore();
 const notificationStore = useNotificationStore();
 const { t } = useI18n();
 
+const isCreatingPlaylist = ref(false);
+
 const addToPlaylist = async (playlistId: number) => {
   if (props.track) {
     const playlist = libraryStore.playlists.find(p => p.id === playlistId);
     await libraryStore.addTrackToPlaylist(playlistId, props.track);
     notificationStore.notify(t('library.added_to_playlist', { name: playlist?.name || '' }));
     emit('close');
+  }
+};
+
+const handlePlaylistCreated = async (playlist: any) => {
+  if (props.track && playlist.id) {
+    await addToPlaylist(playlist.id);
   }
 };
 </script>
@@ -56,6 +66,18 @@ const addToPlaylist = async (playlistId: number) => {
 
         <!-- List -->
         <div class="flex-1 overflow-y-auto p-2 custom-scrollbar">
+          <button 
+            @click="isCreatingPlaylist = true"
+            class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left text-primary border border-white/5 mb-1 group"
+          >
+            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-bold truncate">{{ t('library.create_playlist') }}</p>
+            </div>
+          </button>
+
           <div v-if="libraryStore.playlists.length === 0" class="p-8 text-center">
             <p class="text-sm text-textGray mb-4">{{ t('library.no_playlists') }}</p>
           </div>
@@ -84,4 +106,10 @@ const addToPlaylist = async (playlistId: number) => {
       </div>
     </div>
   </Transition>
+
+  <CreatePlaylistModal 
+    :is-open="isCreatingPlaylist" 
+    @close="isCreatingPlaylist = false" 
+    @created="handlePlaylistCreated"
+  />
 </template>

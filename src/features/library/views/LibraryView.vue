@@ -12,6 +12,7 @@ import { handleDragStart } from '../../../utils/drag';
 import type { Track } from '../../search/models/search';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
 import PlaylistCover from '../components/PlaylistCover.vue';
+import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 
 const libraryStore = useLibraryStore();
 const downloadStore = useDownloadStore();
@@ -21,8 +22,6 @@ const { t } = useI18n();
 
 const activeTab = ref<'favorites' | 'playlists' | 'downloads'>('favorites');
 const isCreatingPlaylist = ref(false);
-const newPlaylistName = ref('');
-const newPlaylistDesc = ref('');
 
 const showDeleteModal = ref(false);
 const playlistToDelete = ref<number | null>(null);
@@ -133,14 +132,6 @@ const toggleSort = (key: typeof sortBy.value) => {
     sortBy.value = key;
     sortOrder.value = 'desc';
   }
-};
-
-const handleCreatePlaylist = async () => {
-  if (!newPlaylistName.value.trim()) return;
-  await libraryStore.createPlaylist(newPlaylistName.value, newPlaylistDesc.value);
-  newPlaylistName.value = '';
-  newPlaylistDesc.value = '';
-  isCreatingPlaylist.value = false;
 };
 
 const requestDeletePlaylist = (id: number) => {
@@ -495,48 +486,10 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
         </div>
 
         <!-- Create Playlist Modal -->
-        <Teleport to="body">
-          <div v-if="isCreatingPlaylist" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div class="bg-surface border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden scale-in">
-              <div class="p-8 space-y-6">
-                <h2 class="text-2xl font-bold">{{ t('library.create_playlist') }}</h2>
-                
-                <div class="space-y-4">
-                  <div class="space-y-2">
-                    <label class="text-xs font-bold text-textGray uppercase tracking-widest">{{ t('library.new_playlist_name') }}</label>
-                    <input 
-                      v-model="newPlaylistName"
-                      type="text" 
-                      class="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
-                      @keyup.enter="handleCreatePlaylist"
-                      autofocus
-                    />
-                  </div>
-                  
-                  <div class="space-y-2">
-                    <label class="text-xs font-bold text-textGray uppercase tracking-widest">{{ t('library.new_playlist_desc') }}</label>
-                    <textarea 
-                      v-model="newPlaylistDesc"
-                      rows="3"
-                      class="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors resize-none"
-                    ></textarea>
-                  </div>
-                </div>
-
-                <div class="flex justify-end gap-3 pt-2">
-                  <button @click="isCreatingPlaylist = false" class="px-6 py-2.5 text-sm font-bold text-textGray hover:text-white transition-colors">{{ t('settings.close') }}</button>
-                  <button 
-                    @click="handleCreatePlaylist" 
-                    class="px-8 py-2.5 bg-primary text-black rounded-full text-sm font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
-                    :disabled="!newPlaylistName.trim()"
-                  >
-                    {{ t('library.create_playlist') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Teleport>
+        <CreatePlaylistModal 
+          :is-open="isCreatingPlaylist" 
+          @close="isCreatingPlaylist = false" 
+        />
 
         <div v-if="libraryStore.playlists.length === 0 && !isCreatingPlaylist" class="flex-1 flex flex-col items-center justify-center opacity-50">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
