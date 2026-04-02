@@ -143,8 +143,7 @@ onMounted(async () => {
             <tr 
               v-for="(track, index) in playlist.tracks" 
               :key="track.ids.deezer"
-              @click="playTrack(track)"
-              class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
+              class="group hover:bg-white/5 transition-colors rounded-md"
               :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >
               <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
@@ -155,7 +154,12 @@ onMounted(async () => {
               </td>
               <td class="py-3">
                 <div class="flex items-center gap-4">
-                  <img :src="getImageUrl(track.album.images)" class="w-10 h-10 object-cover rounded shadow-lg" />
+                  <div class="relative w-10 h-10 flex-shrink-0 group/cover cursor-pointer" @click="playTrack(track)">
+                    <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg group-hover/cover:opacity-70 transition-opacity" />
+                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                  </div>
                   <div class="flex flex-col">
                     <span class="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
                       {{ track.title }}

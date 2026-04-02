@@ -145,8 +145,7 @@ onUnmounted(() => {
                 <tr 
                   v-for="(track, index) in searchStore.results.tracks" 
                   :key="track.ids.deezer"
-                  @click="playbackStore.playTrack(track)"
-                  class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
+                  class="group hover:bg-white/5 transition-colors rounded-md list-item-optimized"
                   :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
                 >
                   <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
@@ -157,15 +156,18 @@ onUnmounted(() => {
                   </td>
                   <td class="py-3">
                     <div class="flex items-center gap-4">
-                      <div class="relative w-10 h-10 flex-shrink-0">
-                        <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg" />
-                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded transition-opacity">
+                      <div 
+                        class="relative w-10 h-10 flex-shrink-0 cursor-pointer group/cover"
+                        @click="playbackStore.playTrack(track)"
+                      >
+                        <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg group-hover/cover:opacity-70 transition-opacity" />
+                        <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center rounded transition-opacity">
                           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </div>
                       </div>
                       <div class="flex flex-col min-w-0">
                         <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">{{ track.title }}</h3>
-                        <p class="text-xs text-textGray truncate hover:underline" @click.stop="router.push(`/artist/${track.artists[0].ids.deezer}`)">
+                        <p class="text-xs text-textGray truncate hover:underline cursor-pointer" @click.stop="router.push(`/artist/${track.artists[0].ids.deezer}`)">
                           {{ track.artists.map(a => a.name).join(', ') }}
                         </p>
                       </div>

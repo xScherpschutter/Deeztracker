@@ -222,8 +222,7 @@ const removeFromPlaylist = async (trackId: string) => {
             <tr 
               v-for="(track, index) in filteredTracks" 
               :key="track.ids.deezer"
-              @click="playTrack(track)"
-              class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
+              class="group hover:bg-white/5 transition-colors rounded-md"
               :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >
               <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
@@ -234,13 +233,21 @@ const removeFromPlaylist = async (trackId: string) => {
               </td>
               <td class="py-3">
                 <div class="flex items-center gap-4">
-                  <img :src="getImageUrl(track.album.images)" class="w-10 h-10 object-cover rounded shadow-lg" />
+                  <div 
+                    class="relative w-10 h-10 flex-shrink-0 cursor-pointer group/cover"
+                    @click="playTrack(track)"
+                  >
+                    <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg group-hover/cover:opacity-70 transition-opacity" />
+                    <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center rounded transition-opacity">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                  </div>
                   <div class="flex flex-col">
                     <span class="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
                       {{ track.title }}
                       <span v-if="track.explicit" class="text-[10px] bg-white/10 text-textGray px-1 rounded uppercase font-bold">E</span>
                     </span>
-                    <span class="text-xs text-textGray hover:underline" @click.stop="router.push(`/artist/${track.artists[0].ids.deezer}`)">
+                    <span class="text-xs text-textGray hover:underline cursor-pointer" @click.stop="router.push(`/artist/${track.artists[0].ids.deezer}`)">
                       {{ track.artists.map(a => a.name).join(', ') }}
                     </span>
                   </div>

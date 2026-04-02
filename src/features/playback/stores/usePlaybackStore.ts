@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
 import type { Track } from '../../search/models/search';
 import { PlaybackService } from '../services/playbackService';
 import { SearchService } from '../../search/services/searchService';
@@ -6,491 +7,481 @@ import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { LrcParser, type LrcLine } from '../utils/lrcParser';
+import { useI18n } from 'vue-i18n';
 
-export const usePlaybackStore = defineStore('playback', {
-  state: () => ({
-    queue: [] as Track[],
-    currentIndex: -1,
-    isPlaying: false,
-    isBuffering: false,
-    volume: 0.8,
-    progress: 0,
-    duration: 0,
-    repeatMode: 'off' as 'off' | 'one' | 'all',
-    isShuffle: false,
-    shuffledIndices: [] as number[],
-    lyrics: [] as LrcLine[],
-    isLoadingLyrics: false,
-    showQueue: false,
-    _listenersInitialized: false,
-  }),
+export const usePlaybackStore = defineStore('playback', () => {
+  const { t } = useI18n();
+  const notificationStore = useNotificationStore();
 
-  getters: {
-    currentTrack(): Track | null {
-      if (this.currentIndex >= 0 && this.currentIndex < this.queue.length) {
-        return this.queue[this.currentIndex];
-      }
-      return null;
-    },
-    currentLineIndex(): number {
-      return LrcParser.getActiveLineIndex(this.lyrics, this.progress * 1000);
-    },
-    hasNext(): boolean {
-      if (this.repeatMode === 'all') return this.queue.length > 0;
-      return this.currentIndex < this.queue.length - 1;
-    },
-    hasPrev(): boolean {
-      if (this.repeatMode === 'all') return this.queue.length > 0;
-      return this.currentIndex > 0;
-    },
-    nextTrackInQueue(): Track | null {
-      if (this.queue.length === 0) return null;
-      if (this.isShuffle) {
-        const currentShufflePos = this.shuffledIndices.indexOf(this.currentIndex);
-        if (currentShufflePos < this.shuffledIndices.length - 1) {
-          return this.queue[this.shuffledIndices[currentShufflePos + 1]];
-        } else if (this.repeatMode === 'all') {
-          return this.queue[this.shuffledIndices[0]];
-        }
-      } else {
-        if (this.currentIndex < this.queue.length - 1) {
-          return this.queue[this.currentIndex + 1];
-        } else if (this.repeatMode === 'all') {
-          return this.queue[0];
-        }
-      }
-      return null;
+  // State
+  const queue = ref<Track[]>([]);
+  const currentIndex = ref(-1);
+  const isPlaying = ref(false);
+  const isBuffering = ref(false);
+  const volume = ref(0.8);
+  const progress = ref(0);
+  const duration = ref(0);
+  const repeatMode = ref<'off' | 'one' | 'all'>('off');
+  const isShuffle = ref(false);
+  const shuffledIndices = ref<number[]>([]);
+  const lyrics = ref<LrcLine[]>([]);
+  const isLoadingLyrics = ref(false);
+  const showQueue = ref(false);
+  const _listenersInitialized = ref(false);
+
+  // Getters
+  const currentTrack = computed(() => {
+    if (currentIndex.value >= 0 && currentIndex.value < queue.value.length) {
+      return queue.value[currentIndex.value];
     }
-  },
+    return null;
+  });
 
-  actions: {
-    async initMediaControls() {
-      if (this._listenersInitialized) return;
-      this._listenersInitialized = true;
+  const currentLineIndex = computed(() => {
+    return LrcParser.getActiveLineIndex(lyrics.value, progress.value * 1000);
+  });
 
-      const handlePlay = () => { if (!this.isPlaying) this.togglePlay(); };
-      const handlePause = () => { if (this.isPlaying) this.togglePlay(); };
-      const handleToggle = () => { this.togglePlay(); };
-      const handleNext = () => { this.next(); };
-      const handlePrev = () => { this.prev(); };
+  const hasNext = computed(() => {
+    if (repeatMode.value === 'all') return queue.value.length > 0;
+    return currentIndex.value < queue.value.length - 1;
+  });
 
-      // 1. Listen to OS media control events from Rust (Souvlaki)
-      listen('media-play', handlePlay);
-      listen('media-pause', handlePause);
-      listen('media-toggle', handleToggle);
-      listen('media-next', handleNext);
-      listen('media-prev', handlePrev);
+  const hasPrev = computed(() => {
+    if (repeatMode.value === 'all') return queue.value.length > 0;
+    return currentIndex.value > 0;
+  });
 
-      // 2. Listen to Browser Media Session events (WebView fallback)
-      window.addEventListener('media-play', handlePlay);
-      window.addEventListener('media-pause', handlePause);
-      window.addEventListener('media-next', handleNext);
-      window.addEventListener('media-prev', handlePrev);
+  const nextTrackInQueue = computed((): Track | null => {
+    if (queue.value.length === 0) return null;
+    if (isShuffle.value) {
+      const currentShufflePos = shuffledIndices.value.indexOf(currentIndex.value);
+      if (currentShufflePos < shuffledIndices.value.length - 1) {
+        return queue.value[shuffledIndices.value[currentShufflePos + 1]];
+      } else if (repeatMode.value === 'all') {
+        return queue.value[shuffledIndices.value[0]];
+      }
+    } else {
+      if (currentIndex.value < queue.value.length - 1) {
+        return queue.value[currentIndex.value + 1];
+      } else if (repeatMode.value === 'all') {
+        return queue.value[0];
+      }
+    }
+    return null;
+  });
 
-      // Sync with backend on init
-      await this.syncWithBackend();
-    },
+  // Actions
+  async function initMediaControls() {
+    if (_listenersInitialized.value) return;
+    _listenersInitialized.value = true;
 
-    async syncWithBackend() {
-      try {
-        const state = await invoke<{ track_id: string | null, position_ms: number, is_playing: boolean }>('audio_get_state');
-        if (state.track_id) {
-          // If we have a track in backend but not in frontend, or it's different
-          if (this.currentTrack?.ids.deezer !== state.track_id) {
-            // We need the full track object. If it's in the queue, we use it.
-            let track = this.queue.find(t => t.ids.deezer === state.track_id);
-            if (!track) {
-              // Fetch track info if not in queue
-              try {
-                track = await invoke<Track>('get_track', { id: state.track_id });
-                this.queue = [track];
-                this.currentIndex = 0;
-              } catch (e) {
-                // If we can't get the track, we can't sync perfectly, but we at least know it's playing
-                console.error('Failed to fetch track for sync:', e);
-              }
-            } else {
-              this.currentIndex = this.queue.indexOf(track);
+    const handlePlay = () => { if (!isPlaying.value) togglePlay(); };
+    const handlePause = () => { if (isPlaying.value) togglePlay(); };
+    const handleToggle = () => { togglePlay(); };
+    const handleNext = () => { next(); };
+    const handlePrev = () => { prev(); };
+
+    // 1. Listen to OS media control events from Rust (Souvlaki)
+    listen('media-play', handlePlay);
+    listen('media-pause', handlePause);
+    listen('media-toggle', handleToggle);
+    listen('media-next', handleNext);
+    listen('media-prev', handlePrev);
+
+    // Sync with backend on init
+    await syncWithBackend();
+  }
+
+  async function syncWithBackend() {
+    try {
+      const state = await invoke<{ track_id: string | null, position_ms: number, is_playing: boolean }>('audio_get_state');
+      if (state.track_id) {
+        if (currentTrack.value?.ids.deezer !== state.track_id) {
+          let track = queue.value.find(t => t.ids.deezer === state.track_id);
+          if (!track) {
+            try {
+              track = await invoke<Track>('get_track', { id: state.track_id });
+              queue.value = [track];
+              currentIndex.value = 0;
+            } catch (e) {
+              console.error('Failed to fetch track for sync:', e);
             }
+          } else {
+            currentIndex.value = queue.value.indexOf(track);
           }
+        }
 
-          if (this.currentTrack) {
-            this.progress = state.position_ms / 1000;
-            this.isPlaying = state.is_playing;
-            this.duration = (this.currentTrack.duration_ms || 0) / 1000;
+        if (currentTrack.value) {
+          progress.value = state.position_ms / 1000;
+          isPlaying.value = state.is_playing;
+          duration.value = (currentTrack.value.duration_ms || 0) / 1000;
 
-            // Re-attach listeners in service
-            const service = PlaybackService.getInstance();
-            service.reconnect(
-              this.currentTrack,
-              () => this.onTrackEnd(),
-              () => { this.isPlaying = true; },
-              () => this.isPlaying = false,
-              (progress, browserDuration) => {
-                this.progress = progress;
-                if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
-                  this.duration = browserDuration;
-                }
+          // Re-attach listeners in service
+          const service = PlaybackService.getInstance();
+          service.reconnect(
+            currentTrack.value,
+            () => onTrackEnd(),
+            () => { isPlaying.value = true; },
+            () => { isPlaying.value = false; },
+            (p, browserDuration) => {
+              progress.value = p;
+              if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
+                duration.value = browserDuration;
               }
-            );
-
-            if (this.lyrics.length === 0) {
-              this.fetchLyrics(this.currentTrack);
             }
-          }
-        }
-      } catch (e) {
-        console.error('Failed to sync with backend:', e);
-      }
-    },
+          );
 
-    async playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {
-      // If the same track is already active, just resume if paused
-      if (this.currentTrack?.ids.deezer === track.ids.deezer) {
-        if (!this.isPlaying) {
-          this.startPlayback();
-        }
-        return;
-      }
-
-      this.resetProgress();
-      this.lyrics = [];
-      // Set the queue based on context
-      if (context) {
-        this.queue = context.items;
-        this.currentIndex = this.queue.findIndex(t => t.ids.deezer === track.ids.deezer);
-      } else {
-        // Single track played: Clear queue, add track, and fetch radio for auto-queue
-        this.queue = [track];
-        this.currentIndex = 0;
-        this.fetchRadio(track.ids.deezer!);
-      }
-
-      if (this.isShuffle) {
-        this.generateShuffledIndices();
-      }
-
-      await this.startPlayback();
-    },
-
-    async startPlayback() {
-      const track = this.currentTrack;
-      if (!track) return;
-
-      // Set duration from metadata immediately (in seconds)
-      const trackDurationMs = track.duration_ms || (track as any).duration * 1000 || 200000;
-      this.duration = trackDurationMs / 1000;
-      this.isBuffering = true;
-
-      // Fetch lyrics in parallel
-      this.fetchLyrics(track);
-
-      const service = PlaybackService.getInstance();
-      await service.play(
-        track,
-        () => this.onTrackEnd(),
-        () => { this.isPlaying = true; },
-        () => this.isPlaying = false,
-        (progress, browserDuration) => {
-          this.progress = progress;
-          // Only trust browser duration if it's a browser valid number and strictly greater than 0
-          if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
-            this.duration = browserDuration;
-          }
-        },
-        () => { this.isBuffering = false; },
-        (buffering) => { this.isBuffering = buffering; },
-      );
-
-      this.triggerPreload();
-    },
-
-    triggerPreload() {
-      const nextTrack = this.nextTrackInQueue;
-      if (nextTrack) {
-
-        PlaybackService.getInstance().preload(nextTrack);
-      }
-    },
-
-    async fetchLyrics(track: Track) {
-      this.isLoadingLyrics = true;
-      this.lyrics = [];
-      try {
-        const lrcContent = await invoke<string | null>('get_lyrics', {
-          artist: track.artists[0]?.name || '',
-          title: track.title,
-          album: track.album.title,
-          durationMs: track.duration_ms
-        });
-
-        if (lrcContent) {
-          this.lyrics = LrcParser.parse(lrcContent);
-        }
-      } catch (e) {
-        console.error('Failed to fetch lyrics:', e);
-      } finally {
-        this.isLoadingLyrics = false;
-      }
-    },
-
-    togglePlay() {
-      const service = PlaybackService.getInstance();
-      if (this.isPlaying) {
-        service.pause();
-      } else {
-        if (this.currentIndex === -1 && this.queue.length > 0) {
-          this.resetProgress();
-          this.currentIndex = 0;
-          this.startPlayback();
-        } else {
-          // Resume if we have a track
-          const track = this.currentTrack;
-          if (track) {
-            this.startPlayback();
+          if (lyrics.value.length === 0) {
+            fetchLyrics(currentTrack.value);
           }
         }
       }
-    },
-
-    playFromQueue(index: number) {
-      this.resetProgress();
-      this.currentIndex = index;
-      this.startPlayback();
-    },
-
-    next() {
-      this.resetProgress();
-      if (this.repeatMode === 'one') {
-        PlaybackService.getInstance().resetTrackId();
-        this.startPlayback();
-        return;
-      }
-
-      if (this.isShuffle) {
-        const currentShufflePos = this.shuffledIndices.indexOf(this.currentIndex);
-        if (currentShufflePos < this.shuffledIndices.length - 1) {
-          this.currentIndex = this.shuffledIndices[currentShufflePos + 1];
-        } else if (this.repeatMode === 'all') {
-          this.currentIndex = this.shuffledIndices[0];
-        } else {
-          return;
-        }
-      } else {
-        if (this.currentIndex < this.queue.length - 1) {
-          this.currentIndex++;
-        } else if (this.repeatMode === 'all') {
-          this.currentIndex = 0;
-        } else {
-          return;
-        }
-      }
-      this.startPlayback();
-    },
-
-    prev() {
-      if (this.progress > 3) {
-        this.seek(0);
-        return;
-      }
-
-      this.resetProgress();
-      if (this.isShuffle) {
-        const currentShufflePos = this.shuffledIndices.indexOf(this.currentIndex);
-        if (currentShufflePos > 0) {
-          this.currentIndex = this.shuffledIndices[currentShufflePos - 1];
-        } else if (this.repeatMode === 'all') {
-          this.currentIndex = this.shuffledIndices[this.shuffledIndices.length - 1];
-        } else {
-          this.seek(0);
-          return;
-        }
-      } else {
-        if (this.currentIndex > 0) {
-          this.currentIndex--;
-        } else if (this.repeatMode === 'all') {
-          this.currentIndex = this.queue.length - 1;
-        } else {
-          this.seek(0);
-          return;
-        }
-      }
-      this.startPlayback();
-    },
-
-    seek(seconds: number) {
-      PlaybackService.getInstance().seek(seconds);
-    },
-
-    setVolume(volume: number) {
-      this.volume = Math.min(Math.max(volume, 0), 1);
-      PlaybackService.getInstance().setVolume(this.volume);
-    },
-
-    stop() {
-      const service = PlaybackService.getInstance();
-      service.pause(); // HTMLAudioElement pause is effective stop
-      this.isPlaying = false;
-      this.currentIndex = -1;
-      this.queue = [];
-      this.resetProgress();
-      this.lyrics = [];
-    },
-
-    toggleShuffle() {
-      this.isShuffle = !this.isShuffle;
-      if (this.isShuffle) {
-        this.generateShuffledIndices();
-      }
-    },
-
-    toggleRepeat() {
-      const modes: ('off' | 'all' | 'one')[] = ['off', 'all', 'one'];
-      const nextIndex = (modes.indexOf(this.repeatMode) + 1) % modes.length;
-      this.repeatMode = modes[nextIndex];
-    },
-
-    toggleQueue() {
-      this.showQueue = !this.showQueue;
-    },
-
-    addToQueue(track: Track) {
-      // Avoid duplicates
-      const exists = this.queue.some(t => t.ids.deezer === track.ids.deezer);
-      const notificationStore = useNotificationStore();
-
-      if (exists) {
-        notificationStore.notify(`${track.title} ya está en la cola`, 'error');
-        return;
-      }
-
-      this.queue.push(track);
-      if (this.isShuffle) {
-        // Add new index to shuffledIndices
-        this.shuffledIndices.push(this.queue.length - 1);
-      }
-
-      // Show notification
-      notificationStore.notify(`${track.title} añadido a la cola`, 'success');
-    },
-
-    removeFromQueue(originalIndex: number) {
-      if (originalIndex === this.currentIndex) return; // Don't remove currently playing
-
-      const track = this.queue[originalIndex];
-      this.queue.splice(originalIndex, 1);
-
-      // Fix currentIndex if needed
-      if (originalIndex < this.currentIndex) {
-        this.currentIndex--;
-      }
-
-      // Fix shuffledIndices
-      if (this.isShuffle) {
-        // Remove the index from shuffled sequence
-        const shufflePos = this.shuffledIndices.indexOf(originalIndex);
-        if (shufflePos !== -1) {
-          this.shuffledIndices.splice(shufflePos, 1);
-        }
-        // Adjust all indices greater than the removed one
-        this.shuffledIndices = this.shuffledIndices.map(idx => idx > originalIndex ? idx - 1 : idx);
-      }
-
-      const notificationStore = useNotificationStore();
-      notificationStore.notify(`${track.title} eliminado de la cola`, 'info');
-    },
-
-    moveUp(originalIndex: number) {
-      if (this.isShuffle) return; // Reordering in shuffle mode is complex, disable for now
-      if (originalIndex <= 0) return;
-
-      const targetIndex = originalIndex - 1;
-      // Don't swap with current track
-      if (originalIndex === this.currentIndex || targetIndex === this.currentIndex) return;
-
-      const track = this.queue[originalIndex];
-      this.queue.splice(originalIndex, 1);
-      this.queue.splice(targetIndex, 0, track);
-    },
-
-    moveDown(originalIndex: number) {
-      if (this.isShuffle) return;
-      if (originalIndex >= this.queue.length - 1) return;
-
-      const targetIndex = originalIndex + 1;
-      if (originalIndex === this.currentIndex || targetIndex === this.currentIndex) return;
-
-      const track = this.queue[originalIndex];
-      this.queue.splice(originalIndex, 1);
-      this.queue.splice(targetIndex, 0, track);
-    },
-
-    reorderQueue(oldIndex: number, newIndex: number) {
-      if (this.isShuffle) return;
-      if (oldIndex < 0 || oldIndex >= this.queue.length) return;
-      if (newIndex < 0 || newIndex >= this.queue.length) return;
-      if (oldIndex === newIndex) return;
-
-      const track = this.queue[oldIndex];
-      const newQueue = [...this.queue];
-      newQueue.splice(oldIndex, 1);
-      newQueue.splice(newIndex, 0, track);
-
-      let nextIndex = this.currentIndex;
-      if (this.currentIndex === oldIndex) {
-        nextIndex = newIndex;
-      } else if (oldIndex < this.currentIndex && newIndex >= this.currentIndex) {
-        nextIndex--;
-      } else if (oldIndex > this.currentIndex && newIndex <= this.currentIndex) {
-        nextIndex++;
-      }
-
-      this.queue = newQueue;
-      this.currentIndex = nextIndex;
-    },
-
-    resetProgress() {
-      this.progress = 0;
-      this.duration = 0;
-      this.isBuffering = false;
-    },
-
-    onTrackEnd() {
-      if (this.repeatMode === 'one') {
-        this.resetProgress();
-        PlaybackService.getInstance().resetTrackId();
-        this.startPlayback();
-      } else {
-        this.next();
-      }
-    },
-
-    async fetchRadio(trackId: string) {
-      try {
-        const relatedTracks = await SearchService.getTrackRadio(trackId);
-
-        // Race condition check: Only update if the track we're playing is still the one
-        // we requested the radio for.
-        if (this.currentTrack?.ids.deezer !== trackId) return;
-
-        const newTracks = relatedTracks.filter(rt => !this.queue.some(q => q.ids.deezer === rt.ids.deezer));
-        this.queue.push(...newTracks);
-        if (this.isShuffle) {
-          this.generateShuffledIndices();
-        }
-      } catch (e) {
-        // Silent error
-      }
-    },
-
-    generateShuffledIndices() {
-      const indices = Array.from({ length: this.queue.length }, (_, i) => i);
-      for (let i = indices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
-      }
-      this.shuffledIndices = indices;
-
+    } catch (e) {
+      console.error('Failed to sync with backend:', e);
     }
   }
+
+  async function playTrack(track: Track, context?: { type: 'album' | 'playlist' | 'radio' | 'top', items: Track[] }) {
+    if (currentTrack.value?.ids.deezer === track.ids.deezer) {
+      if (!isPlaying.value) {
+        startPlayback();
+      }
+      return;
+    }
+
+    resetProgress();
+    lyrics.value = [];
+    if (context) {
+      queue.value = context.items;
+      currentIndex.value = queue.value.findIndex(t => t.ids.deezer === track.ids.deezer);
+    } else {
+      queue.value = [track];
+      currentIndex.value = 0;
+      fetchRadio(track.ids.deezer!);
+    }
+
+    if (isShuffle.value) {
+      generateShuffledIndices();
+    }
+
+    await startPlayback();
+  }
+
+  async function startPlayback() {
+    const track = currentTrack.value;
+    if (!track) return;
+
+    const trackDurationMs = track.duration_ms || (track as any).duration * 1000 || 200000;
+    duration.value = trackDurationMs / 1000;
+    isBuffering.value = true;
+
+    fetchLyrics(track);
+
+    const service = PlaybackService.getInstance();
+    await service.play(
+      track,
+      () => onTrackEnd(),
+      () => { isPlaying.value = true; },
+      () => { isPlaying.value = false; },
+      (p, browserDuration) => {
+        progress.value = p;
+        if (browserDuration && isFinite(browserDuration) && browserDuration > 0) {
+          duration.value = browserDuration;
+        }
+      },
+      () => { isBuffering.value = false; },
+      (buffering) => { isBuffering.value = buffering; },
+    );
+
+    triggerPreload();
+  }
+
+  function triggerPreload() {
+    const nextTrack = nextTrackInQueue.value;
+    if (nextTrack) {
+      PlaybackService.getInstance().preload(nextTrack);
+    }
+  }
+
+  async function fetchLyrics(track: Track) {
+    isLoadingLyrics.value = true;
+    lyrics.value = [];
+    try {
+      const lrcContent = await invoke<string | null>('get_lyrics', {
+        artist: track.artists[0]?.name || '',
+        title: track.title,
+        album: track.album.title,
+        durationMs: track.duration_ms
+      });
+
+      if (lrcContent) {
+        lyrics.value = LrcParser.parse(lrcContent);
+      }
+    } catch (e) {
+      console.error('Failed to fetch lyrics:', e);
+    } finally {
+      isLoadingLyrics.value = false;
+    }
+  }
+
+  function togglePlay() {
+    const service = PlaybackService.getInstance();
+    if (isPlaying.value) {
+      service.pause();
+    } else {
+      if (currentIndex.value === -1 && queue.value.length > 0) {
+        resetProgress();
+        currentIndex.value = 0;
+        startPlayback();
+      } else {
+        const track = currentTrack.value;
+        if (track) {
+          startPlayback();
+        }
+      }
+    }
+  }
+
+  function playFromQueue(index: number) {
+    resetProgress();
+    currentIndex.value = index;
+    startPlayback();
+  }
+
+  function next() {
+    resetProgress();
+    if (repeatMode.value === 'one') {
+      PlaybackService.getInstance().resetTrackId();
+      startPlayback();
+      return;
+    }
+
+    if (isShuffle.value) {
+      const currentShufflePos = shuffledIndices.value.indexOf(currentIndex.value);
+      if (currentShufflePos < shuffledIndices.value.length - 1) {
+        currentIndex.value = shuffledIndices.value[currentShufflePos + 1];
+      } else if (repeatMode.value === 'all') {
+        currentIndex.value = shuffledIndices.value[0];
+      } else {
+        return;
+      }
+    } else {
+      if (currentIndex.value < queue.value.length - 1) {
+        currentIndex.value++;
+      } else if (repeatMode.value === 'all') {
+        currentIndex.value = 0;
+      } else {
+        return;
+      }
+    }
+    startPlayback();
+  }
+
+  function prev() {
+    if (progress.value > 3) {
+      seek(0);
+      return;
+    }
+
+    resetProgress();
+    if (isShuffle.value) {
+      const currentShufflePos = shuffledIndices.value.indexOf(currentIndex.value);
+      if (currentShufflePos > 0) {
+        currentIndex.value = shuffledIndices.value[currentShufflePos - 1];
+      } else if (repeatMode.value === 'all') {
+        currentIndex.value = shuffledIndices.value[shuffledIndices.value.length - 1];
+      } else {
+        seek(0);
+        return;
+      }
+    } else {
+      if (currentIndex.value > 0) {
+        currentIndex.value--;
+      } else if (repeatMode.value === 'all') {
+        currentIndex.value = queue.value.length - 1;
+      } else {
+        seek(0);
+        return;
+      }
+    }
+    startPlayback();
+  }
+
+  function seek(seconds: number) {
+    PlaybackService.getInstance().seek(seconds);
+  }
+
+  function setVolume(v: number) {
+    volume.value = Math.min(Math.max(v, 0), 1);
+    PlaybackService.getInstance().setVolume(volume.value);
+  }
+
+  function stop() {
+    const service = PlaybackService.getInstance();
+    service.pause();
+    isPlaying.value = false;
+    currentIndex.value = -1;
+    queue.value = [];
+    resetProgress();
+    lyrics.value = [];
+  }
+
+  function toggleShuffle() {
+    isShuffle.value = !isShuffle.value;
+    if (isShuffle.value) {
+      generateShuffledIndices();
+    }
+  }
+
+  function toggleRepeat() {
+    const modes: ('off' | 'all' | 'one')[] = ['off', 'all', 'one'];
+    const nextIdx = (modes.indexOf(repeatMode.value) + 1) % modes.length;
+    repeatMode.value = modes[nextIdx];
+  }
+
+  function toggleQueue() {
+    showQueue.value = !showQueue.value;
+  }
+
+  function addToQueue(track: Track) {
+    const exists = queue.value.some(t => t.ids.deezer === track.ids.deezer);
+    if (exists) {
+      notificationStore.notify(t('playback.already_in_queue', { name: track.title }), 'error');
+      return;
+    }
+
+    queue.value.push(track);
+    if (isShuffle.value) {
+      shuffledIndices.value.push(queue.value.length - 1);
+    }
+    notificationStore.notify(t('playback.added_to_queue', { name: track.title }), 'success');
+  }
+
+  function addTracksToQueue(tracks: Track[]) {
+    let addedCount = 0;
+    tracks.forEach(track => {
+      const exists = queue.value.some(t => t.ids.deezer === track.ids.deezer);
+      if (!exists) {
+        queue.value.push(track);
+        if (isShuffle.value) {
+          shuffledIndices.value.push(queue.value.length - 1);
+        }
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      notificationStore.notify(t('playback.batch_added_to_queue', { n: addedCount }), 'success');
+    } else {
+      notificationStore.notify(t('playback.all_already_in_queue'), 'info');
+    }
+  }
+
+  function removeFromQueue(originalIndex: number) {
+    if (originalIndex === currentIndex.value) return;
+
+    const track = queue.value[originalIndex];
+    queue.value.splice(originalIndex, 1);
+
+    if (originalIndex < currentIndex.value) {
+      currentIndex.value--;
+    }
+
+    if (isShuffle.value) {
+      const shufflePos = shuffledIndices.value.indexOf(originalIndex);
+      if (shufflePos !== -1) {
+        shuffledIndices.value.splice(shufflePos, 1);
+      }
+      shuffledIndices.value = shuffledIndices.value.map(idx => idx > originalIndex ? idx - 1 : idx);
+    }
+
+    notificationStore.notify(t('playback.removed_from_queue', { name: track.title }), 'info');
+  }
+
+  function moveUp(originalIndex: number) {
+    if (isShuffle.value || originalIndex <= 0) return;
+    const targetIndex = originalIndex - 1;
+    if (originalIndex === currentIndex.value || targetIndex === currentIndex.value) return;
+
+    const track = queue.value[originalIndex];
+    queue.value.splice(originalIndex, 1);
+    queue.value.splice(targetIndex, 0, track);
+  }
+
+  function moveDown(originalIndex: number) {
+    if (isShuffle.value || originalIndex >= queue.value.length - 1) return;
+    const targetIndex = originalIndex + 1;
+    if (originalIndex === currentIndex.value || targetIndex === currentIndex.value) return;
+
+    const track = queue.value[originalIndex];
+    queue.value.splice(originalIndex, 1);
+    queue.value.splice(targetIndex, 0, track);
+  }
+
+  function reorderQueue(oldIndex: number, newIndex: number) {
+    if (isShuffle.value || oldIndex < 0 || oldIndex >= queue.value.length || newIndex < 0 || newIndex >= queue.value.length || oldIndex === newIndex) return;
+
+    const track = queue.value[oldIndex];
+    const newQueue = [...queue.value];
+    newQueue.splice(oldIndex, 1);
+    newQueue.splice(newIndex, 0, track);
+
+    let nextIdx = currentIndex.value;
+    if (currentIndex.value === oldIndex) {
+      nextIdx = newIndex;
+    } else if (oldIndex < currentIndex.value && newIndex >= currentIndex.value) {
+      nextIdx--;
+    } else if (oldIndex > currentIndex.value && newIndex <= currentIndex.value) {
+      nextIdx++;
+    }
+
+    queue.value = newQueue;
+    currentIndex.value = nextIdx;
+  }
+
+  function resetProgress() {
+    progress.value = 0;
+    duration.value = 0;
+    isBuffering.value = false;
+  }
+
+  function onTrackEnd() {
+    if (repeatMode.value === 'one') {
+      resetProgress();
+      PlaybackService.getInstance().resetTrackId();
+      startPlayback();
+    } else {
+      next();
+    }
+  }
+
+  async function fetchRadio(trackId: string) {
+    try {
+      const relatedTracks = await SearchService.getTrackRadio(trackId);
+      if (currentTrack.value?.ids.deezer !== trackId) return;
+      const newTracks = relatedTracks.filter(rt => !queue.value.some(q => q.ids.deezer === rt.ids.deezer));
+      queue.value.push(...newTracks);
+      if (isShuffle.value) {
+        generateShuffledIndices();
+      }
+    } catch (e) {}
+  }
+
+  function generateShuffledIndices() {
+    const indices = Array.from({ length: queue.value.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    shuffledIndices.value = indices;
+  }
+
+  return {
+    queue, currentIndex, isPlaying, isBuffering, volume, progress, duration,
+    repeatMode, isShuffle, shuffledIndices, lyrics, isLoadingLyrics, showQueue,
+    currentTrack, currentLineIndex, hasNext, hasPrev, nextTrackInQueue,
+    initMediaControls, playTrack, togglePlay, playFromQueue, next, prev,
+    seek, setVolume, stop, toggleShuffle, toggleRepeat, toggleQueue,
+    addToQueue, addTracksToQueue, removeFromQueue, moveUp, moveDown, reorderQueue
+  };
 });

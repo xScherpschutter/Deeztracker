@@ -95,16 +95,23 @@ onMounted(async () => {
             <div 
               v-for="(track, index) in charts.tracks.slice(0, 5)" 
               :key="track.ids.deezer"
-              @click="playTrack(track)"
-              class="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+              class="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors"
             >
               <span class="w-6 text-center text-textGray text-sm font-mono">{{ index + 1 }}</span>
-              <img :src="getImageUrl(track.album.images)" class="w-12 h-12 object-cover rounded shadow-lg" />
+              <div 
+                class="relative w-12 h-12 flex-shrink-0 cursor-pointer group/cover"
+                @click="playTrack(track)"
+              >
+                <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg group-hover/cover:opacity-70 transition-opacity" />
+                <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center rounded transition-opacity">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+              </div>
               <div class="flex-1 min-w-0">
                 <h3 class="font-bold text-sm truncate group-hover:text-primary transition-colors" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
                   {{ track.title }}
                 </h3>
-                <p class="text-xs text-textGray truncate">{{ track.artists[0]?.name }}</p>
+                <p class="text-xs text-textGray truncate hover:underline cursor-pointer" @click="router.push(`/artist/${track.artists[0]?.ids.deezer}`)">{{ track.artists[0]?.name }}</p>
               </div>
               <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" :class="{ 'opacity-100': downloadStore.isDownloaded(track.ids.deezer) || downloadStore.isDownloading(track.ids.deezer) }">
                 <!-- Download Status / Action -->

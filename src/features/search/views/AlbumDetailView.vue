@@ -57,6 +57,17 @@ const playAlbum = () => {
   }
 };
 
+const addAlbumToQueue = () => {
+  if (!album.value) return;
+  const tracksWithAlbum = album.value.tracks.map(t => ({
+    ...t,
+    album: {
+      ...album.value,
+    }
+  })) as unknown as Track[];
+  playbackStore.addTracksToQueue(tracksWithAlbum);
+};
+
 const downloadAlbum = () => {
   if (album.value?.ids.deezer) {
     downloadStore.downloadAlbum(album.value.ids.deezer);
@@ -119,6 +130,14 @@ onMounted(async () => {
         </button>
 
         <button 
+          @click="addAlbumToQueue"
+          class="w-12 h-12 bg-white/5 hover:bg-white/10 text-white rounded-full flex items-center justify-center border border-white/10 transition-all hover:scale-105 active:scale-95"
+          :title="t('playback.add_to_queue')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+
+        <button 
           @click="downloadAlbum"
           class="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/5"
           :disabled="!!downloadStore.batchProgress"
@@ -150,8 +169,7 @@ onMounted(async () => {
             <tr 
               v-for="(track, index) in album.tracks" 
               :key="track.ids.deezer"
-              @click="playTrack(track)"
-              class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
+              class="group hover:bg-white/5 transition-colors rounded-md"
               :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >
               <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
@@ -159,7 +177,11 @@ onMounted(async () => {
               </td>
               <td class="py-3">
                 <div class="flex flex-col">
-                  <span class="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
+                  <span 
+                    @click="playTrack(track)"
+                    class="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2 cursor-pointer hover:underline" 
+                    :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
+                  >
                     {{ track.title }}
                     <span v-if="track.explicit" class="text-[10px] bg-white/10 text-textGray px-1 rounded uppercase font-bold">E</span>
                   </span>
