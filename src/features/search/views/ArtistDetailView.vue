@@ -5,7 +5,6 @@ import { SearchService } from '../services/searchService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { useDownloadStore } from '../../library/stores/useDownloadStore';
-import { handleDragStart } from "../../../utils/drag";
 import type { Artist, Track, Album } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../utils/time';

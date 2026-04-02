@@ -88,7 +88,10 @@
     "download_all": "Descargar todo",
     "downloading": "Descargando...",
     "downloaded": "Descargado",
+    "download_success": "Descargado: {name}",
     "download_error": "Error al descargar",
+    "batch_download_completed": "Descarga por lotes completada",
+    "batch_download_finished_errors": "Descarga finalizada ({n} errores)",
     "cancel_downloads": "Cancelar descargas"
   },
   "player": {

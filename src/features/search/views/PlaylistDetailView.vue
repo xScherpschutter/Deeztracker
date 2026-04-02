@@ -112,10 +112,10 @@ onMounted(async () => {
 
         <button 
           @click="downloadPlaylist"
-          class="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all font-bold text-sm"
+          class="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/5"
           :disabled="!!downloadStore.batchProgress"
         >
-          <template v-if="downloadStore.batchProgress">
+          <template v-if="downloadStore.batchProgress?.track_id === String(playlist.ids.deezer)">
             <div class="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
             <span>{{ downloadStore.batchProgress.current }} / {{ downloadStore.batchProgress.total }}</span>
           </template>

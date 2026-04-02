@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useLibraryStore } from '../stores/useLibraryStore';
 
-const props = defineProps<{
+defineProps<{
   isOpen: boolean;
 }>();
 

@@ -87,7 +87,10 @@
     "download_all": "Download all",
     "downloading": "Downloading...",
     "downloaded": "Downloaded",
+    "download_success": "Downloaded: {name}",
     "download_error": "Download error",
+    "batch_download_completed": "Batch download completed",
+    "batch_download_finished_errors": "Download finished ({n} errors)",
     "cancel_downloads": "Cancel downloads"
   },
   "player": {
