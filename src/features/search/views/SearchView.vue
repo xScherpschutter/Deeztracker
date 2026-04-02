@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useSearchStore } from '../stores/useSearchStore';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
-import { useDownloadStore } from '../../library/library/stores/useDownloadStore';
+import { useDownloadStore } from '../../library/stores/useDownloadStore';
 import type { SearchType, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -343,8 +343,5 @@ onUnmounted(() => {
 .grid-item-optimized {
   content-visibility: auto;
   contain-intrinsic-size: 200px 300px;
-}
-</style>
-n-intrinsic-size: 200px 300px;
 }
 </style>

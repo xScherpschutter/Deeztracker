@@ -548,6 +548,3 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
   background: rgba(255, 255, 255, 0.1);
 }
 </style>
- rgba(255, 255, 255, 0.1);
-}
-</style>

@@ -141,7 +141,7 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr 
-              v-for="(track, index) in tracks" 
+              v-for="(track, index) in playlist.tracks" 
               :key="track.ids.deezer"
               @click="playTrack(track)"
               class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"

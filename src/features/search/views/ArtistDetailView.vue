@@ -217,6 +217,3 @@ onMounted(async () => {
     <AddToPlaylistModal :is-open="isPlaylistModalOpen" :track="selectedTrack" @close="isPlaylistModalOpen = false" />
   </div>
 </template>
-Open = false" />
-  </div>
-</template>
