@@ -10,7 +10,6 @@ import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../../search/utils/time';  
 import { getImageUrl } from '../../search/utils/image';
 import { getRelativeTime } from '../../../utils/date';
-import { handleDragStart } from '../../../utils/drag';
 import LoadingSpinner from '../../search/components/LoadingSpinner.vue';
 import PlaylistCover from '../components/PlaylistCover.vue';
 
@@ -224,8 +223,6 @@ const removeFromPlaylist = async (trackId: string) => {
               v-for="(track, index) in filteredTracks" 
               :key="track.ids.deezer"
               @click="playTrack(track)"
-              draggable="true"
-              @dragstart="handleDragStart($event, track)"
               class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
               :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >

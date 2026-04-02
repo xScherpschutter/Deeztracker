@@ -5,7 +5,6 @@ import { SearchService } from '../services/searchService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { useDownloadStore } from '../../library/stores/useDownloadStore';
-import { handleDragStart } from "../../../utils/drag";
 import type { Album, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../utils/time';
@@ -152,8 +151,6 @@ onMounted(async () => {
               v-for="(track, index) in album.tracks" 
               :key="track.ids.deezer"
               @click="playTrack(track)"
-              draggable="true"
-              @dragstart="handleDragStart($event, { ...track, album })"
               class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
               :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
             >

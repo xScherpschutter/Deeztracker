@@ -425,6 +425,30 @@ export const usePlaybackStore = defineStore('playback', {
       this.queue.splice(targetIndex, 0, track);
     },
 
+    reorderQueue(oldIndex: number, newIndex: number) {
+      if (this.isShuffle) return;
+      if (oldIndex < 0 || oldIndex >= this.queue.length) return;
+      if (newIndex < 0 || newIndex >= this.queue.length) return;
+      if (oldIndex === newIndex) return;
+
+      const track = this.queue[oldIndex];
+      const newQueue = [...this.queue];
+      newQueue.splice(oldIndex, 1);
+      newQueue.splice(newIndex, 0, track);
+
+      let nextIndex = this.currentIndex;
+      if (this.currentIndex === oldIndex) {
+        nextIndex = newIndex;
+      } else if (oldIndex < this.currentIndex && newIndex >= this.currentIndex) {
+        nextIndex--;
+      } else if (oldIndex > this.currentIndex && newIndex <= this.currentIndex) {
+        nextIndex++;
+      }
+
+      this.queue = newQueue;
+      this.currentIndex = nextIndex;
+    },
+
     resetProgress() {
       this.progress = 0;
       this.duration = 0;

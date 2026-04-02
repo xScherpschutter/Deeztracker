@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
@@ -9,6 +9,52 @@ const playbackStore = usePlaybackStore();
 const { queue, currentIndex, isShuffle, shuffledIndices, showQueue } = storeToRefs(playbackStore);
 
 const currentTrack = computed(() => playbackStore.currentTrack);
+
+// Drag and Drop state
+const draggedOriginalIndex = ref<number | null>(null);
+const dragOverOriginalIndex = ref<number | null>(null);
+
+const handleDragStart = (e: DragEvent, originalIndex: number) => {
+  if (isShuffle.value) return;
+  draggedOriginalIndex.value = originalIndex;
+  
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    // For Firefox to allow drag, we must set some data
+    e.dataTransfer.setData('text/plain', originalIndex.toString());
+  }
+};
+
+const handleDragOver = (e: DragEvent, originalIndex: number) => {
+  if (isShuffle.value || draggedOriginalIndex.value === null) return;
+  e.preventDefault();
+  
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+  
+  dragOverOriginalIndex.value = originalIndex;
+};
+
+const handleDrop = (e: DragEvent, targetOriginalIndex: number) => {
+  if (isShuffle.value || draggedOriginalIndex.value === null) return;
+  e.preventDefault();
+  
+  const from = draggedOriginalIndex.value;
+  const to = targetOriginalIndex;
+  
+  if (from !== to) {
+    playbackStore.reorderQueue(from, to);
+  }
+  
+  draggedOriginalIndex.value = null;
+  dragOverOriginalIndex.value = null;
+};
+
+const handleDragEnd = () => {
+  draggedOriginalIndex.value = null;
+  dragOverOriginalIndex.value = null;
+};
 
 // Helper to get the correct display order based on shuffle
 const displayQueue = computed(() => {
@@ -140,10 +186,19 @@ const closeDrawer = () => {
         <div>
           <div class="text-xs font-bold text-textGray uppercase tracking-wider mb-3 px-2">{{ t('playback.next_up') }}</div>
           <div class="space-y-1">
-            <template v-for="item in displayQueue" :key="'next-'+item.originalIndex">
+            <template v-for="item in displayQueue" :key="item.track.ids.deezer">
               <div 
                 @click="playFromQueue(item.originalIndex)"
+                :draggable="!isShuffle"
+                @dragstart="handleDragStart($event, item.originalIndex)"
+                @dragover="handleDragOver($event, item.originalIndex)"
+                @drop="handleDrop($event, item.originalIndex)"
+                @dragend="handleDragEnd"
                 class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer group transition-all"
+                :class="{
+                  'opacity-40 scale-95': draggedOriginalIndex === item.originalIndex,
+                  'border-t-2 border-primary bg-primary/5': dragOverOriginalIndex === item.originalIndex && draggedOriginalIndex !== item.originalIndex
+                }"
               >
                 <div class="relative w-10 h-10 flex-shrink-0">
                   <img :src="item.track.album.images[0]?.url" class="w-full h-full rounded object-cover group-hover:opacity-60 transition-opacity" alt="Cover">
@@ -158,23 +213,10 @@ const closeDrawer = () => {
 
                 <!-- Actions -->
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <!-- Reorder (Only in non-shuffle) -->
-                  <template v-if="!isShuffle">
-                    <button 
-                      @click.stop="playbackStore.moveUp(item.originalIndex)" 
-                      class="p-1 hover:bg-white/10 rounded text-textGray hover:text-white transition-colors"
-                      :title="t('playback.move_up')"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                    </button>
-                    <button 
-                      @click.stop="playbackStore.moveDown(item.originalIndex)" 
-                      class="p-1 hover:bg-white/10 rounded text-textGray hover:text-white transition-colors"
-                      :title="t('playback.move_down')"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                  </template>
+                  <!-- Drag Handle icon (Only in non-shuffle) -->
+                  <div v-if="!isShuffle" class="p-1 text-textGray cursor-grab active:cursor-grabbing">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                  </div>
 
                   <!-- Remove -->
                   <button 

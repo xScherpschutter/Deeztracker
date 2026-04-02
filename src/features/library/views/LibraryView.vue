@@ -8,7 +8,6 @@ import { useI18n } from 'vue-i18n';
 import { formatDuration } from '../../search/utils/time';
 import { getImageUrl } from '../../search/utils/image';
 import { getRelativeTime } from '../../../utils/date';
-import { handleDragStart } from '../../../utils/drag';
 import type { Track } from '../../search/models/search';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
 import PlaylistCover from '../components/PlaylistCover.vue';
@@ -265,8 +264,6 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
                 v-for="(track, index) in filteredFavorites" 
                 :key="track.ids.deezer"
                 @click="playFavorite(track)"
-                draggable="true"
-                @dragstart="handleDragStart($event, track)"
                 class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                 :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
@@ -411,8 +408,6 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
                 v-for="(track, index) in filteredDownloads" 
                 :key="track.ids.deezer"
                 @click="playDownloaded(track)"
-                draggable="true"
-                @dragstart="handleDragStart($event, track)"
                 class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                 :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
@@ -551,5 +546,8 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+</style>
+ rgba(255, 255, 255, 0.1);
 }
 </style>

@@ -6,7 +6,6 @@ import { SearchService } from '../../search/services/searchService';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
 import { useDownloadStore } from '../../library/stores/useDownloadStore';
-import { handleDragStart } from "../../../utils/drag";
 import type { Track, Album, Artist, Playlist } from '../../search/models/search';
 import { getImageUrl } from '../../search/utils/image';
 import LoadingSpinner from '../../search/components/LoadingSpinner.vue';
@@ -97,8 +96,6 @@ onMounted(async () => {
               v-for="(track, index) in charts.tracks.slice(0, 5)" 
               :key="track.ids.deezer"
               @click="playTrack(track)"
-              draggable="true"
-              @dragstart="handleDragStart($event, track)"
               class="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             >
               <span class="w-6 text-center text-textGray text-sm font-mono">{{ index + 1 }}</span>
@@ -210,5 +207,8 @@ onMounted(async () => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+</style>
+a(255, 255, 255, 0.2);
 }
 </style>

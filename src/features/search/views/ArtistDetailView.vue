@@ -125,8 +125,6 @@ onMounted(async () => {
                 v-for="(track, index) in topTracks" 
                 :key="track.ids.deezer"
                 @click="playTrack(track)"
-                draggable="true"
-                @dragstart="handleDragStart($event, track)"
                 class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md"
                 :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
               >
@@ -217,5 +215,8 @@ onMounted(async () => {
     </div>
 
     <AddToPlaylistModal :is-open="isPlaylistModalOpen" :track="selectedTrack" @close="isPlaylistModalOpen = false" />
+  </div>
+</template>
+Open = false" />
   </div>
 </template>

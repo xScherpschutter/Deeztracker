@@ -3,8 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useSearchStore } from '../stores/useSearchStore';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
-import { useDownloadStore } from '../../library/stores/useDownloadStore';
-import { handleDragStart } from "../../../utils/drag";
+import { useDownloadStore } from '../../library/library/stores/useDownloadStore';
 import type { SearchType, Track } from '../models/search';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -147,8 +146,6 @@ onUnmounted(() => {
                   v-for="(track, index) in searchStore.results.tracks" 
                   :key="track.ids.deezer"
                   @click="playbackStore.playTrack(track)"
-                  draggable="true"
-                  @dragstart="handleDragStart($event, track)"
                   class="group hover:bg-white/5 transition-colors cursor-pointer rounded-md list-item-optimized"
                   :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
                 >
@@ -346,5 +343,8 @@ onUnmounted(() => {
 .grid-item-optimized {
   content-visibility: auto;
   contain-intrinsic-size: 200px 300px;
+}
+</style>
+n-intrinsic-size: 200px 300px;
 }
 </style>
