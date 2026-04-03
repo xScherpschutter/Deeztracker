@@ -20,6 +20,7 @@ const { t, locale } = useI18n();
 // Custom dropdown state
 const qualityDropdownOpen = ref(false);
 const languageDropdownOpen = ref(false);
+const lyricsModeDropdownOpen = ref(false);
 
 const qualityOptions = computed(() => [
   { value: 'MP3_128', label: t('settings.audio.quality_low') },
@@ -32,6 +33,12 @@ const languageOptions = computed(() => [
   { value: 'en', label: t('settings.appearance.languages.en') },
 ]);
 
+const lyricsModeOptions = computed(() => [
+  { value: 'normal', label: t('settings.appearance.lyrics_modes.normal') },
+  { value: 'fade', label: t('settings.appearance.lyrics_modes.fade') },
+  { value: 'current', label: t('settings.appearance.lyrics_modes.current') },
+]);
+
 const selectedQualityLabel = computed(() => {
   const option = qualityOptions.value.find(o => o.value === settingsStore.audioQuality);
   return option?.label ?? settingsStore.audioQuality;
@@ -40,6 +47,11 @@ const selectedQualityLabel = computed(() => {
 const selectedLanguageLabel = computed(() => {
   const option = languageOptions.value.find(o => o.value === settingsStore.language);
   return option?.label ?? settingsStore.language;
+});
+
+const selectedLyricsModeLabel = computed(() => {
+  const option = lyricsModeOptions.value.find(o => o.value === settingsStore.lyricsMode);
+  return option?.label ?? settingsStore.lyricsMode;
 });
 
 const selectQuality = (value: string) => {
@@ -53,14 +65,27 @@ const selectLanguage = (value: string) => {
   languageDropdownOpen.value = false;
 };
 
+const selectLyricsMode = (value: any) => {
+  settingsStore.setLyricsMode(value);
+  lyricsModeDropdownOpen.value = false;
+};
+
 const toggleQualityDropdown = () => {
   qualityDropdownOpen.value = !qualityDropdownOpen.value;
   languageDropdownOpen.value = false;
+  lyricsModeDropdownOpen.value = false;
 };
 
 const toggleLanguageDropdown = () => {
   languageDropdownOpen.value = !languageDropdownOpen.value;
   qualityDropdownOpen.value = false;
+  lyricsModeDropdownOpen.value = false;
+};
+
+const toggleLyricsModeDropdown = () => {
+  lyricsModeDropdownOpen.value = !lyricsModeDropdownOpen.value;
+  qualityDropdownOpen.value = false;
+  languageDropdownOpen.value = false;
 };
 
 // Close dropdowns on outside click
@@ -69,6 +94,7 @@ const handleClickOutside = (e: MouseEvent) => {
   if (!target.closest('.custom-select')) {
     qualityDropdownOpen.value = false;
     languageDropdownOpen.value = false;
+    lyricsModeDropdownOpen.value = false;
   }
 };
 
@@ -173,37 +199,73 @@ const handleLogout = () => {
           <!-- Appearance Section -->
           <section>
             <h3 class="text-xs font-bold text-textGray uppercase tracking-wider mb-4">{{ t('settings.appearance.title') }}</h3>
-            <div class="flex items-center justify-between">
-              <div class="font-medium">{{ t('settings.appearance.language') }}</div>
-              <!-- Custom Select: Language -->
-              <div class="custom-select relative">
-                <button 
-                  @click="toggleLanguageDropdown"
-                  class="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary cursor-pointer text-white flex items-center gap-2 min-w-[160px] justify-between"
-                >
-                  <span>{{ selectedLanguageLabel }}</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform" :class="{ 'rotate-180': languageDropdownOpen }"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-                <Transition
-                  enter-active-class="transition duration-150 ease-out"
-                  enter-from-class="opacity-0 -translate-y-1"
-                  enter-to-class="opacity-100 translate-y-0"
-                  leave-active-class="transition duration-100 ease-in"
-                  leave-from-class="opacity-100 translate-y-0"
-                  leave-to-class="opacity-0 -translate-y-1"
-                >
-                  <div v-if="languageDropdownOpen" class="absolute right-0 mt-1 w-full bg-white rounded-lg shadow-xl z-10 overflow-hidden border border-gray-200">
-                    <button
-                      v-for="option in languageOptions"
-                      :key="option.value"
-                      @click="selectLanguage(option.value)"
-                      class="w-full text-left px-3 py-2 text-sm text-black hover:bg-primary/10 hover:text-primary transition-colors"
-                      :class="{ 'bg-primary/10 text-primary font-semibold': settingsStore.language === option.value }"
-                    >
-                      {{ option.label }}
-                    </button>
-                  </div>
-                </Transition>
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="font-medium">{{ t('settings.appearance.language') }}</div>
+                <!-- Custom Select: Language -->
+                <div class="custom-select relative">
+                  <button 
+                    @click="toggleLanguageDropdown"
+                    class="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary cursor-pointer text-white flex items-center gap-2 min-w-[160px] justify-between"
+                  >
+                    <span>{{ selectedLanguageLabel }}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform" :class="{ 'rotate-180': languageDropdownOpen }"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <Transition
+                    enter-active-class="transition duration-150 ease-out"
+                    enter-from-class="opacity-0 -translate-y-1"
+                    enter-to-class="opacity-100 translate-y-0"
+                    leave-active-class="transition duration-100 ease-in"
+                    leave-from-class="opacity-100 translate-y-0"
+                    leave-to-class="opacity-0 -translate-y-1"
+                  >
+                    <div v-if="languageDropdownOpen" class="absolute right-0 mt-1 w-full bg-white rounded-lg shadow-xl z-10 overflow-hidden border border-gray-200">
+                      <button
+                        v-for="option in languageOptions"
+                        :key="option.value"
+                        @click="selectLanguage(option.value)"
+                        class="w-full text-left px-3 py-2 text-sm text-black hover:bg-primary/10 hover:text-primary transition-colors"
+                        :class="{ 'bg-primary/10 text-primary font-semibold': settingsStore.language === option.value }"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </Transition>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <div class="font-medium">{{ t('settings.appearance.lyrics_mode') }}</div>
+                <!-- Custom Select: Lyrics Mode -->
+                <div class="custom-select relative">
+                  <button 
+                    @click="toggleLyricsModeDropdown"
+                    class="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary cursor-pointer text-white flex items-center gap-2 min-w-[160px] justify-between"
+                  >
+                    <span>{{ selectedLyricsModeLabel }}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform" :class="{ 'rotate-180': lyricsModeDropdownOpen }"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <Transition
+                    enter-active-class="transition duration-150 ease-out"
+                    enter-from-class="opacity-0 -translate-y-1"
+                    enter-to-class="opacity-100 translate-y-0"
+                    leave-active-class="transition duration-100 ease-in"
+                    leave-from-class="opacity-100 translate-y-0"
+                    leave-to-class="opacity-0 -translate-y-1"
+                  >
+                    <div v-if="lyricsModeDropdownOpen" class="absolute right-0 mt-1 w-full bg-white rounded-lg shadow-xl z-10 overflow-hidden border border-gray-200">
+                      <button
+                        v-for="option in lyricsModeOptions"
+                        :key="option.value"
+                        @click="selectLyricsMode(option.value)"
+                        class="w-full text-left px-3 py-2 text-sm text-black hover:bg-primary/10 hover:text-primary transition-colors"
+                        :class="{ 'bg-primary/10 text-primary font-semibold': settingsStore.lyricsMode === option.value }"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </Transition>
+                </div>
               </div>
             </div>
           </section>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useLibraryStore } from '../../library/stores/useLibraryStore';
-import { computed, ref, watch, onMounted, nextTick } from 'vue';
+import { computed, ref } from 'vue';
+import LyricsDisplay from '../components/LyricsDisplay.vue';
 
 const store = usePlaybackStore();
 const libraryStore = useLibraryStore();
-const lyricsList = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 const localProgress = ref(0);
 
@@ -21,61 +21,11 @@ const onSeekChange = (e: Event) => {
 };
 
 const currentTrack = computed(() => store.currentTrack);
-const lyrics = computed(() => store.lyrics);
-const currentIndex = computed(() => store.currentLineIndex);
-
-const scrollToActiveLine = (index: number, smooth: boolean = true) => {
-  if (index >= 0 && lyricsList.value) {
-    const lines = lyricsList.value.querySelectorAll('.lyric-line');
-    const activeLine = lines[index] as HTMLElement;
-    
-    if (activeLine) {
-      const containerHeight = lyricsList.value.clientHeight;
-      const lineOffset = activeLine.offsetTop;
-      const lineHeight = activeLine.clientHeight;
-      
-      // Center the line perfectly in the viewport
-      const scrollTo = lineOffset - (containerHeight / 2) + (lineHeight / 2);
-      
-      lyricsList.value.scrollTo({
-        top: scrollTo,
-        behavior: smooth ? 'smooth' : 'auto'
-      });
-    }
-  }
-};
-
-// Auto-scroll lyrics to the active line when it changes
-watch(currentIndex, (newIndex) => {
-  scrollToActiveLine(newIndex, true);
-});
-
-// Scroll to the active line immediately when the component opens
-onMounted(async () => {
-  if (lyrics.value.length > 0) {
-    // Wait for the DOM to render the lyric lines
-    await nextTick();
-    scrollToActiveLine(currentIndex.value, false);
-  }
-});
-
-// Also watch for when lyrics finish loading while the player is already open
-watch(lyrics, async (newLyrics) => {
-  if (newLyrics.length > 0) {
-    await nextTick();
-    scrollToActiveLine(currentIndex.value, false);
-  }
-});
 
 const formatTime = (seconds: number) => {
   const min = Math.floor(seconds / 60);
   const sec = Math.floor(seconds % 60);
   return `${min}:${sec.toString().padStart(2, '0')}`;
-};
-
-const seekTo = (timeMs: number) => {
-  if (timeMs === Number.MAX_SAFE_INTEGER) return;
-  store.seek(timeMs / 1000);
 };
 </script>
 
@@ -182,60 +132,13 @@ const seekTo = (timeMs: number) => {
 
       <!-- Right Column: Lyrics (centered) -->
       <div class="flex-1 flex flex-col items-center justify-center relative min-h-0 h-full overflow-hidden max-w-2xl">
-        <!-- Loading State -->
-        <div v-if="store.isLoadingLyrics" class="flex flex-col items-center gap-3">
-          <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white/40"></div>
-          <p class="text-white/40 text-sm">{{ $t('player.searching_lyrics') }}</p>
-        </div>
-
-        <!-- No Lyrics -->
-        <div v-else-if="lyrics.length === 0" class="text-white/25 text-lg italic text-center px-8">
-          {{ $t('player.lyrics_not_available') }}
-        </div>
-
-        <!-- Lyrics List -->
-        <div v-else ref="lyricsList" class="w-full h-full overflow-y-auto scrollbar-hide py-[40vh] px-4 space-y-2 select-none">
-          <div v-for="(line, index) in lyrics" 
-               :key="index"
-               class="lyric-line py-4 px-6 rounded-2xl cursor-pointer hover:bg-white/5 text-center group/line"
-               :class="{
-                 'text-white scale-110 opacity-100 blur-none font-bold': index === currentIndex,
-                 'text-white/30 opacity-40 font-semibold scale-95': index !== currentIndex,
-                 'translate-y-4': index > currentIndex,
-                 '-translate-y-4': index < currentIndex
-               }"
-               @click="seekTo(line.timeMs)">
-            <p class="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-relaxed"
-               :class="{ 'drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]': index === currentIndex }">
-              {{ line.text }}
-            </p>
-          </div>
-        </div>
+        <LyricsDisplay />
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.lyric-line {
-  scroll-margin: 35vh;
-  transition: transform 0.3s ease-out, opacity 0.3s ease-out, filter 0.3s ease-out;
-  will-change: transform, opacity, filter;
-  transform: translateZ(0);
-}
-
-.lyric-line p {
-  transition: filter 0.3s ease-out, transform 0.3s ease-out;
-}
-
 input[type='range']::-webkit-slider-thumb {
   appearance: none;
   width: 12px;

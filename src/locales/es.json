@@ -140,6 +140,12 @@
       "languages": {
         "es": "Español",
         "en": "Inglés"
+      },
+      "lyrics_mode": "Modo de letras",
+      "lyrics_modes": {
+        "normal": "Normal",
+        "fade": "Desvanecer",
+        "current": "Solo actual"
       }
     },
     "account": {
