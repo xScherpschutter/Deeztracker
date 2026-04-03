@@ -5,13 +5,11 @@ import { useDownloadStore } from '../stores/useDownloadStore';
 import { usePlaybackStore } from '../../playback/stores/usePlaybackStore';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { formatDuration } from '../../search/utils/time';
-import { getImageUrl } from '../../search/utils/image';
-import { getRelativeTime } from '../../../utils/date';
 import type { Track } from '../../search/models/search';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
 import PlaylistCover from '../components/PlaylistCover.vue';
 import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
+import TrackList from '../../../components/TrackList.vue';
 
 const libraryStore = useLibraryStore();
 const downloadStore = useDownloadStore();
@@ -124,11 +122,12 @@ const playAllDownloads = () => {
   }
 };
 
-const toggleSort = (key: typeof sortBy.value) => {
-  if (sortBy.value === key) {
+const toggleSort = (key: any) => {
+  const sortKey = key as typeof sortBy.value;
+  if (sortBy.value === sortKey) {
     sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
   } else {
-    sortBy.value = key;
+    sortBy.value = sortKey;
     sortOrder.value = 'desc';
   }
 };
@@ -241,104 +240,12 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
             </div>
           </div>
           
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="text-textGray text-xs uppercase tracking-widest border-b border-white/5">
-                <th class="py-3 font-medium w-12 text-center">#</th>
-                <th class="py-3 font-medium cursor-pointer hover:text-white transition-colors" @click="toggleSort('title')">
-                  {{ t('search.track_title') }}
-                  <span v-if="sortBy === 'title'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th class="py-3 font-medium hidden md:table-cell">{{ t('search.categories.albums') }}</th>
-                <th class="py-3 font-medium hidden lg:table-cell cursor-pointer hover:text-white transition-colors" @click="toggleSort('added_at')">
-                  {{ t('library.added_at') }}
-                  <span v-if="sortBy === 'added_at'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th class="py-3 font-medium w-20 text-right pr-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr 
-                v-for="(track, index) in filteredFavorites" 
-                :key="track.ids.deezer"
-                class="group hover:bg-white/5 transition-colors rounded-md list-item-optimized"
-                :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
-              >
-                <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
-                  <span v-if="playbackStore.currentTrack?.ids.deezer === track.ids.deezer && playbackStore.isPlaying">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mx-auto animate-pulse fill-current" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                  </span>
-                  <span v-else>{{ index + 1 }}</span>
-                </td>
-                <td class="py-3">
-                  <div class="flex items-center gap-4">
-                    <div 
-                      class="relative w-10 h-10 flex-shrink-0 cursor-pointer group/cover"
-                      @click="playFavorite(track)"
-                    >
-                      <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg group-hover/cover:opacity-70 transition-opacity" />
-                      <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center rounded transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                      </div>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                      <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">{{ track.title }}</h3>
-                      <p class="text-xs text-textGray truncate hover:underline cursor-pointer" @click.stop="router.push(`/artist/${track.artists[0]?.ids.deezer}`)">
-                        {{ track.artists.map(a => a.name).join(', ') }}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-3 text-sm text-textGray hidden md:table-cell">
-                  <span class="hover:underline truncate block max-w-[200px]" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
-                    {{ track.album.title }}
-                  </span>
-                </td>
-                <td class="py-3 text-sm text-textGray hidden lg:table-cell">
-                  {{ track.added_at ? getRelativeTime(track.added_at, t) : '-' }}
-                </td>
-                <td class="py-3 pr-4">
-                  <div class="flex items-center justify-end gap-3">
-                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" :class="{ 'opacity-100': downloadStore.isDownloaded(track.ids.deezer) || downloadStore.isDownloading(track.ids.deezer) }">
-                      <!-- Download Status / Action -->
-                      <button 
-                        v-if="!downloadStore.isDownloaded(track.ids.deezer)"
-                        @click.stop="downloadStore.downloadTrack(track.ids.deezer!)" 
-                        class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
-                        :disabled="downloadStore.isDownloading(track.ids.deezer)"
-                        :title="t('playback.download')"
-                      >
-                        <div v-if="downloadStore.isDownloading(track.ids.deezer)" class="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      </button>
-                      <div v-else class="p-1.5 text-primary" :title="t('playback.downloaded')">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      </div>
-
-                      <!-- Add to Queue -->
-                      <button 
-                        @click.stop="playbackStore.addToQueue(track)" 
-                        class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
-                        :title="t('playback.add_to_queue')"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/><path d="m13 18 2 2 4-4"/></svg>
-                      </button>
-
-                      <button 
-                        @click.stop="libraryStore.toggleFavorite(track)" 
-                        class="p-1.5 hover:bg-white/10 rounded-full transition-all text-primary"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                      </button>
-                    </div>
-                    <span class="text-xs text-textGray font-mono tabular-nums w-10 text-right">{{ formatDuration(track.duration_ms) }}</span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <TrackList 
+            :tracks="filteredFavorites"
+            :show-added-at="true"
+            @play="playFavorite"
+            @toggle-sort="toggleSort"
+          />
         </div>
       </div>
 
@@ -392,91 +299,13 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
             </div>
           </div>
           
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="text-textGray text-xs uppercase tracking-widest border-b border-white/5">
-                <th class="py-3 font-medium w-12 text-center">#</th>
-                <th class="py-3 font-medium cursor-pointer hover:text-white transition-colors" @click="toggleSort('title')">
-                  {{ t('search.track_title') }}
-                  <span v-if="sortBy === 'title'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th class="py-3 font-medium hidden md:table-cell">{{ t('search.categories.albums') }}</th>
-                <th class="py-3 font-medium hidden lg:table-cell cursor-pointer hover:text-white transition-colors" @click="toggleSort('added_at')">
-                  {{ t('library.added_at') }}
-                  <span v-if="sortBy === 'added_at'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-                </th>
-                <th class="py-3 font-medium w-20 text-right pr-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr 
-                v-for="(track, index) in filteredDownloads" 
-                :key="track.ids.deezer"
-                class="group hover:bg-white/5 transition-colors rounded-md list-item-optimized"
-                :class="{ 'bg-white/5 text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }"
-              >
-                <td class="py-3 text-sm text-textGray text-center tabular-nums group-hover:text-white" :class="{ 'text-primary font-bold': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">
-                  <span v-if="playbackStore.currentTrack?.ids.deezer === track.ids.deezer && playbackStore.isPlaying">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mx-auto animate-pulse fill-current" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                  </span>
-                  <span v-else>{{ index + 1 }}</span>
-                </td>
-                <td class="py-3">
-                  <div class="flex items-center gap-4">
-                    <div 
-                      class="relative w-10 h-10 flex-shrink-0 cursor-pointer group/cover"
-                      @click="playDownloaded(track)"
-                    >
-                      <img :src="getImageUrl(track.album.images)" class="w-full h-full object-cover rounded shadow-lg group-hover/cover:opacity-70 transition-opacity" />
-                      <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center rounded transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                      </div>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                      <h3 class="font-medium text-sm truncate group-hover:text-primary transition-colors" :class="{ 'text-primary': playbackStore.currentTrack?.ids.deezer === track.ids.deezer }">{{ track.title }}</h3>
-                      <p class="text-xs text-textGray truncate hover:underline cursor-pointer" @click.stop="router.push(`/artist/${track.artists[0]?.ids.deezer}`)">
-                        {{ track.artists.map(a => a.name).join(', ') }}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-3 text-sm text-textGray hidden md:table-cell">
-                  <span class="hover:underline truncate block max-w-[200px]" @click.stop="router.push(`/album/${track.album.ids.deezer}`)">
-                    {{ track.album.title }}
-                  </span>
-                </td>
-                <td class="py-3 text-sm text-textGray hidden lg:table-cell">
-                  {{ track.added_at ? getRelativeTime(track.added_at, t) : '-' }}
-                </td>
-                <td class="py-3 pr-4">
-                  <div class="flex items-center justify-end gap-3">
-                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <!-- Add to Queue -->
-                      <button 
-                        @click.stop="playbackStore.addToQueue(track)" 
-                        class="p-1.5 hover:bg-white/10 text-textGray hover:text-white rounded-full transition-colors"
-                        :title="t('playback.add_to_queue')"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/><path d="m13 18 2 2 4-4"/></svg>
-                      </button>
-
-                      <button 
-                        @click.stop="libraryStore.toggleFavorite(track)" 
-                        class="p-1.5 hover:bg-white/10 rounded-full transition-colors"
-                        :class="libraryStore.isTrackFavorite(track.ids.deezer) ? 'text-primary' : 'text-textGray hover:text-white'"
-                      >
-                        <svg v-if="libraryStore.isTrackFavorite(track.ids.deezer)" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                      </button>
-                    </div>
-                    <span class="text-xs text-textGray font-mono tabular-nums w-10 text-right">{{ formatDuration(track.duration_ms) }}</span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <TrackList 
+            :tracks="filteredDownloads"
+            :show-added-at="true"
+            :show-download-action="false"
+            @play="playDownloaded"
+            @toggle-sort="toggleSort"
+          />
         </div>
       </div>
 
@@ -543,11 +372,6 @@ const setTab = (tab: 'favorites' | 'playlists' | 'downloads') => {
 </template>
 
 <style scoped>
-.list-item-optimized {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 64px;
-}
-
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { useI18n } from 'vue-i18n';
@@ -9,7 +9,8 @@ import CreatePlaylistModal from './CreatePlaylistModal.vue';
 
 const props = defineProps<{
   isOpen: boolean;
-  track: Track | null;
+  track?: Track | null;
+  tracks?: Track[];
 }>();
 
 const emit = defineEmits(['close']);
@@ -20,17 +21,33 @@ const { t } = useI18n();
 
 const isCreatingPlaylist = ref(false);
 
+const tracksToAdd = computed(() => {
+  if (props.tracks && props.tracks.length > 0) return props.tracks;
+  if (props.track) return [props.track];
+  return [];
+});
+
 const addToPlaylist = async (playlistId: number) => {
-  if (props.track) {
+  if (tracksToAdd.value.length > 0) {
     const playlist = libraryStore.playlists.find(p => p.id === playlistId);
-    await libraryStore.addTrackToPlaylist(playlistId, props.track);
-    notificationStore.notify(t('library.added_to_playlist', { name: playlist?.name || '' }));
+    
+    // Add all tracks
+    for (const track of tracksToAdd.value) {
+      await libraryStore.addTrackToPlaylist(playlistId, track);
+    }
+    
+    if (tracksToAdd.value.length === 1) {
+      notificationStore.notify(t('library.added_to_playlist', { name: playlist?.name || '' }));
+    } else {
+      notificationStore.notify(t('library.added_tracks_to_playlist', { count: tracksToAdd.value.length, name: playlist?.name || '' }));
+    }
+    
     emit('close');
   }
 };
 
 const handlePlaylistCreated = async (playlist: any) => {
-  if (props.track && playlist.id) {
+  if (tracksToAdd.value.length > 0 && playlist.id) {
     await addToPlaylist(playlist.id);
   }
 };
@@ -55,12 +72,21 @@ const handlePlaylistCreated = async (playlist: any) => {
           </button>
         </div>
 
-        <!-- Track Info -->
-        <div v-if="track" class="px-6 py-4 flex items-center gap-3 bg-white/5 border-b border-white/5">
-          <img :src="track.album.images[0]?.url" class="w-10 h-10 rounded shadow" />
+        <!-- Track Info (Only if single track) -->
+        <div v-if="tracksToAdd.length === 1" class="px-6 py-4 flex items-center gap-3 bg-white/5 border-b border-white/5">
+          <img :src="tracksToAdd[0].album.images[0]?.url" class="w-10 h-10 rounded shadow" />
           <div class="min-w-0">
-            <p class="text-sm font-bold truncate">{{ track.title }}</p>
-            <p class="text-xs text-textGray truncate">{{ track.artists.map(a => a.name).join(', ') }}</p>
+            <p class="text-sm font-bold truncate">{{ tracksToAdd[0].title }}</p>
+            <p class="text-xs text-textGray truncate">{{ tracksToAdd[0].artists.map(a => a.name).join(', ') }}</p>
+          </div>
+        </div>
+        <!-- Multiple Tracks Info -->
+        <div v-else-if="tracksToAdd.length > 1" class="px-6 py-4 flex items-center gap-3 bg-white/5 border-b border-white/5">
+          <div class="w-10 h-10 rounded bg-primary/20 flex items-center justify-center text-primary font-bold">
+            {{ tracksToAdd.length }}
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-bold truncate">{{ t('library.selected_tracks', { count: tracksToAdd.length }) }}</p>
           </div>
         </div>
 
