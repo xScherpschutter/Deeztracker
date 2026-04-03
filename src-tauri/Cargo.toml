@@ -1,6 +1,6 @@
 [package]
 name = "deeztracker"
-version = "0.1.0"
+version = "0.1.7"
 description = "Deeztracker"
 authors = ["Crowstar"]
 edition = "2021"
